@@ -17,12 +17,12 @@ You may have encountered this kind of model with discrete predictors.
 ## Load packages and data
 
 ```{r}
-library(palmerpenguins)
+# library(palmerpenguins)
 library(tidyverse)
 # library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
-options(mc.cores = parallel::detectCores())
+suppressPackageStartupMessages(library(brms))
+# rstan_options("auto_write" = TRUE)
+# options(mc.cores = parallel::detectCores())
 library(tidybayes)
 ```
 
@@ -32,10 +32,10 @@ Let's start by taking a look at the Palmer Penguin dataset by looking at the dis
 
 ```{r}
 #| fig-cap: Histogram of bill depth for all the penguins in the Palmer Penguin dataset.
-library(tidyverse)
-library(palmerpenguins)
+# library(tidyverse)
+# library(palmerpenguins)
 penguins |> 
-  ggplot(aes(x=bill_depth_mm)) + 
+  ggplot(aes(x=bill_dep)) + 
   geom_histogram(binwidth = .5)
 ```
 
@@ -51,7 +51,7 @@ $$
 \end{align}
 $$
 
-let's express the same model in Stan:
+let's express the same model in brms:
 
 ```{r}
 #| class-output: stan
@@ -73,7 +73,7 @@ We'll drop NA values^[just for this toy example!], and set up the data in a list
 # first we drop all NA values
 penguins_nobillNA <- penguins |> 
   #drop NA values
-  filter(!is.na(bill_depth_mm))
+  filter(!is.na(bill_dep))
 
 ## then we assemble the data as a list.
 ## I'm using the base function with()
@@ -81,8 +81,8 @@ penguins_nobillNA <- penguins |>
 ## without writing penguins_nobillNA$bill_depth_mm
 
 list_bill_dep <- with(penguins_nobillNA,
-     list(N = length(bill_depth_mm),
-          measurements = bill_depth_mm))
+     list(N = length(bill_dep),
+          measurements = bill_dep))
      
 ## sample 4 chains, suppress counting iterations
 normal_bill_dep_samp <- sampling(normal_dist,

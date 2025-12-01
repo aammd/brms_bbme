@@ -25,7 +25,8 @@ title: "Course contents"
 ::: {.column width="50%"}
 ### Exercises
 * [Simulation and model fitting in Stan](topics/01_simulation)
-* [Discrete predictors](topics/discrete_predictor)
+
+<!-- * [Discrete predictors](topics/discrete_predictor) -->
 
 :::
 

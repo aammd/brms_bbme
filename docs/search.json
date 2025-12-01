@@ -326,7 +326,7 @@
     "href": "slides/02_Bayesian/index.html#outline-of-today",
     "title": "Bayesian modelling",
     "section": "Outline of today",
-    "text": "Outline of today\n\nOverview of frequentist and bayesian statistics\nBrief intro to GLMs\nsome practical advice on a Bayesian workflow with a (VERY) simple example."
+    "text": "Outline of today\n\nOverview of frequentist and bayesian statistics\nBrief intro to GLMs\nsome practical advice on a Bayesian workflow with a (VERY) simple example.\nDiscussion, practice exercises, and time for our own projects.\n\n\nbut first let’s introduce ourselves!"
   },
   {
     "objectID": "slides/02_Bayesian/index.html#frequentist",
