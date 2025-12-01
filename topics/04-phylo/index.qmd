@@ -9,7 +9,6 @@ categories: [UdeS, stan]
 draft: false
 editor_options: 
   chunk_output_type: console
-bibliography: references.bib
 ---
 
 ```{r setup, eval=TRUE, message=FALSE, warning=FALSE}
@@ -27,7 +26,7 @@ options(mc.cores = parallel::detectCores())
 
 I've always wanted to learn more about phylogenetic regressions, and thanks to my colleauge Alex Fuster I recently had the opportunity to sit down and work on them. The literature on the topic is *confusing*, large, and not always clear about what model is being fit. I relied heavily on two resources:
 
--   one book, a free online resource from Tony Ives [@ives]
+-   one book, a [free online resource from Tony Ives](https://ives.labs.wisc.edu/pdf/correlateddata.pdf)
 -   a preprint, an excellent review of the use and misuse of Pagel's Lambda by @pearse
 
 :::

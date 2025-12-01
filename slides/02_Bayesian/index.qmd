@@ -3,23 +3,40 @@ title: "Bayesian modelling"
 title-slide-attributes: 
   data-background-image: ../img/bg.jpg
   data-background-size: full
-author: "Guillaume Blanchet -- Andrew MacDonald"
-date: "2025-05-06"
+author: "Andrew MacDonald"
+date: "2025-12-01"
 execute:
   echo: true
 format: 
   revealjs:
     theme: [default]
-    logo: ../img/UdeS_logo_h_rgbHR.png
+    # logo: ../img/UdeS_logo_h_rgbHR.png
     transition: slide
     background-transition: fade
 ---
+
+## Personal introduction! 
+
+* PhD in Zoology at UBC
+* field ecologist who likes stats too much ;) 
+* R user and recent convert to Bayesian stats
+
+## Outline of today
+
+* Overview of frequentist and bayesian statistics
+* Brief intro to GLMs
+* some practical advice on a Bayesian workflow with a (VERY) simple example.
+* Discussion, practice exercises, and time for our own projects.
+
+. . .
+
+but **first** let's introduce ourselves! 
 
 ## Frequentist 
 . . . 
 
 ::: {style="font-size: 0.8em"}
-In introductory statistics course, it is common to rely on the frequentist paradigm when inferring results from data.
+In introductory statistics course, it is common to rely on the frequentist paradigm.
 ::: 
 
 . . . 
@@ -100,9 +117,14 @@ $$\underbrace{P(\text{Model}|\text{Data})}_\text{Posterior}\propto \underbrace{P
 - ...
 :::
 
-## Our way of thinking is Bayesian
+## The GLMM: an ecologist's ultrasound
 
-[![](../img/Fantastic_Beast.png){width=1000 height=500}](https://youtu.be/uoEnGiG9aWA?t=34)
+[![](../img/kidney.jpeg){width=1000 height=500}]
+
+* easy to use
+* available
+* important to avoid seeing mirages
+* Not the ideal tool but the one we have to work with!
 
 ## A few words about the prior
 
