@@ -4,14 +4,14 @@
     "href": "index.html",
     "title": "Course contents",
     "section": "",
-    "text": "Daily schedule\nLink to Shared notes document"
+    "text": "This course is based on Modèles hiérarchiques pour les sciences de la vie by Guillaume Blanchet and Andrew MacDonald."
   },
   {
     "objectID": "index.html#day-1-introduction-data-simulation-discrete-models",
     "href": "index.html#day-1-introduction-data-simulation-discrete-models",
     "title": "Course contents",
     "section": "Day 1: Introduction, data simulation, discrete models",
-    "text": "Day 1: Introduction, data simulation, discrete models\n\n\n\nSlides\n\nBayesian and MCMC\nStan and HMC\nLinear models\nData we’ll be using\nProbability Distributions\n\n\n\n\nExercises\n\nSimulation and model fitting in Stan\nDiscrete predictors"
+    "text": "Day 1: Introduction, data simulation, discrete models\n\n\n\nSlides\n\nBayesian and MCMC\nStan and HMC\nLinear models\nData we’ll be using\nProbability Distributions\n\n\n\n\nExercises\n\nSimulation and model fitting in Stan\n\n\n\n\n\n\n\nSlides\n\n\n\nExercises\n\nDiscrete predictors"
   },
   {
     "objectID": "slides/04_Linear_model/index.html#basic-regression-model",
@@ -1164,7 +1164,7 @@
   {
     "objectID": "topics/schedule/index.html",
     "href": "topics/schedule/index.html",
-    "title": "Modèles hiérarchiques pour les sciences de la vie",
+    "title": "Generalized Linear Hierarchical models in brms",
     "section": "",
     "text": "7h30 to 8h30 - Breakfast\n\n8h30 to 10h00 - Lecture/Practice\n\n10h00 to 10h30 - Break\n\n10h30 to 12h30 - Lecture/Practice\n\n12h00 to 13h00 - Lunch\n\n13h30 to 15h00 - Lecture/Practice\n\n15h30 to 16h00 - Break\n\n16h00 to 17h00 - Lecture/Practice\n17h00 to 17h30 - Let us know about your research !\n\n17h30 to 18h30 - Break\n\n\n18h30 to 19h00 - Supper"
   },

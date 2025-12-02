@@ -8,7 +8,7 @@
 
 <meta name="description" content="fitting a model with discrete predictors.">
 
-<title>Palmer penguins and discrete predictors – Modèles hiérarchiques pour les sciences de la vie</title>
+<title>Palmer penguins and discrete predictors – Generalized Linear Hierarchical models in brms</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -72,10 +72,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-2fef5ea3f8957b3e4ecc936fc74692ca.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap-824fa90ada31816aa693051e63413769.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-83ef79ec45755748b848d52875005fa0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -145,7 +145,7 @@ window.Quarto = {
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="../../index.html">
-    <span class="navbar-title">Modèles hiérarchiques pour les sciences de la vie</span>
+    <span class="navbar-title">Generalized Linear Hierarchical models in brms</span>
     </a>
   </div>
         <div class="quarto-navbar-tools tools-end">
@@ -1317,12 +1317,12 @@ SOLUTION
 <span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="fu">## Load packages and data</span></span>
 <span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(palmerpenguins)</span>
+<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a><span class="co"># library(palmerpenguins)</span></span>
 <span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a><span class="co"># library(cmdstanr)</span></span>
-<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="fu">library</span>(rstan))</span>
-<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a><span class="fu">rstan_options</span>(<span class="st">"auto_write"</span> <span class="ot">=</span> <span class="cn">TRUE</span>)</span>
-<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">mc.cores =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>())</span>
+<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="fu">library</span>(brms))</span>
+<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a><span class="co"># rstan_options("auto_write" = TRUE)</span></span>
+<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a><span class="co"># options(mc.cores = parallel::detectCores())</span></span>
 <span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidybayes)</span>
 <span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a></span>
@@ -1332,10 +1332,10 @@ SOLUTION
 <span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: Histogram of bill depth for all the penguins in the Palmer Penguin dataset.</span></span>
-<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(palmerpenguins)</span>
+<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a><span class="co"># library(tidyverse)</span></span>
+<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a><span class="co"># library(palmerpenguins)</span></span>
 <span id="cb33-41"><a href="#cb33-41" aria-hidden="true" tabindex="-1"></a>penguins <span class="sc">|&gt;</span> </span>
-<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x=</span>bill_depth_mm)) <span class="sc">+</span> </span>
+<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x=</span>bill_dep)) <span class="sc">+</span> </span>
 <span id="cb33-43"><a href="#cb33-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> .<span class="dv">5</span>)</span>
 <span id="cb33-44"><a href="#cb33-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb33-45"><a href="#cb33-45" aria-hidden="true" tabindex="-1"></a></span>
@@ -1351,7 +1351,7 @@ SOLUTION
 <span id="cb33-55"><a href="#cb33-55" aria-hidden="true" tabindex="-1"></a>\end{align}</span>
 <span id="cb33-56"><a href="#cb33-56" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb33-57"><a href="#cb33-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a>let's express the same model in Stan:</span>
+<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a>let's express the same model in brms:</span>
 <span id="cb33-59"><a href="#cb33-59" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb33-62"><a href="#cb33-62" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
 <span id="cb33-63"><a href="#cb33-63" aria-hidden="true" tabindex="-1"></a><span class="co">#| class-output: stan</span></span>
@@ -1373,7 +1373,7 @@ SOLUTION
 <span id="cb33-81"><a href="#cb33-81" aria-hidden="true" tabindex="-1"></a><span class="co"># first we drop all NA values</span></span>
 <span id="cb33-82"><a href="#cb33-82" aria-hidden="true" tabindex="-1"></a>penguins_nobillNA <span class="ot">&lt;-</span> penguins <span class="sc">|&gt;</span> </span>
 <span id="cb33-83"><a href="#cb33-83" aria-hidden="true" tabindex="-1"></a>  <span class="co">#drop NA values</span></span>
-<span id="cb33-84"><a href="#cb33-84" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(bill_depth_mm))</span>
+<span id="cb33-84"><a href="#cb33-84" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(bill_dep))</span>
 <span id="cb33-85"><a href="#cb33-85" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb33-86"><a href="#cb33-86" aria-hidden="true" tabindex="-1"></a><span class="do">## then we assemble the data as a list.</span></span>
 <span id="cb33-87"><a href="#cb33-87" aria-hidden="true" tabindex="-1"></a><span class="do">## I'm using the base function with()</span></span>
@@ -1381,8 +1381,8 @@ SOLUTION
 <span id="cb33-89"><a href="#cb33-89" aria-hidden="true" tabindex="-1"></a><span class="do">## without writing penguins_nobillNA$bill_depth_mm</span></span>
 <span id="cb33-90"><a href="#cb33-90" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb33-91"><a href="#cb33-91" aria-hidden="true" tabindex="-1"></a>list_bill_dep <span class="ot">&lt;-</span> <span class="fu">with</span>(penguins_nobillNA,</span>
-<span id="cb33-92"><a href="#cb33-92" aria-hidden="true" tabindex="-1"></a>     <span class="fu">list</span>(<span class="at">N =</span> <span class="fu">length</span>(bill_depth_mm),</span>
-<span id="cb33-93"><a href="#cb33-93" aria-hidden="true" tabindex="-1"></a>          <span class="at">measurements =</span> bill_depth_mm))</span>
+<span id="cb33-92"><a href="#cb33-92" aria-hidden="true" tabindex="-1"></a>     <span class="fu">list</span>(<span class="at">N =</span> <span class="fu">length</span>(bill_dep),</span>
+<span id="cb33-93"><a href="#cb33-93" aria-hidden="true" tabindex="-1"></a>          <span class="at">measurements =</span> bill_dep))</span>
 <span id="cb33-94"><a href="#cb33-94" aria-hidden="true" tabindex="-1"></a>     </span>
 <span id="cb33-95"><a href="#cb33-95" aria-hidden="true" tabindex="-1"></a><span class="do">## sample 4 chains, suppress counting iterations</span></span>
 <span id="cb33-96"><a href="#cb33-96" aria-hidden="true" tabindex="-1"></a>normal_bill_dep_samp <span class="ot">&lt;-</span> <span class="fu">sampling</span>(normal_dist,</span>

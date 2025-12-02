@@ -4,7 +4,7 @@ project:
   execute-dir: project
 
 website:
-  title: "Modèles hiérarchiques pour les sciences de la vie"
+  title: "Generalized Linear Hierarchical models in brms"
   navbar:
     tools:
       - icon: github
@@ -12,7 +12,7 @@ website:
 
 format:
   html:
-    theme: flatly
+    theme: solar
     css: styles.css
     toc: true
 
