@@ -16,14 +16,10 @@ editor_options:
 ## Load packages and data
 
 ```{r}
-library(palmerpenguins)
 library(ggplot2)
 suppressPackageStartupMessages(library(dplyr))
 library(tidybayes)
-# library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
-options(mc.cores = parallel::detectCores())
+suppressPackageStartupMessages(library(brms))
 ```
 
 ## Statistical models of Penguin bill morphology.
@@ -37,7 +33,7 @@ Let's begin with plotting the data:
 ```{r}
 #| fig-cap: Bill depth (mm) as predicted by bill length (mm) across the entire `palmerpenguins` dataset.
 penguins |> 
-  ggplot(aes(x = bill_length_mm, y = bill_depth_mm)) + 
+  ggplot(aes(x = bill_len, y = bill_dep)) + 
   geom_point() + 
   stat_smooth(method = "lm")
 ```
@@ -64,7 +60,7 @@ It has to be somewhere. Does it make sense? take control and choose for yourself
 If we fit a model like this **without** thinking about the location of zero, we get some pretty silly answers:
 
 ```{r}
-coef(lm(bill_depth_mm ~ bill_length_mm, data = penguins))
+coef(lm(bill_dep ~ bill_len, data = penguins))
 ```
 
 When the value of bill length is 0, the average of the response is the intercept:
@@ -120,7 +116,7 @@ We'll make a bunch of lines implied by the equation above. There's two steps:
 
 ```{r}
 bill_len_centered <- with(penguins,
-                          bill_length_mm - mean(bill_length_mm,
+                          bill_len - mean(bill_len,
                                                 na.rm = TRUE))
 
 ## make up a short vector
@@ -230,58 +226,51 @@ Pick one of the two simulations above and modify it. Here are some suggested mod
 * Instead of bill size, imagine that we are applying this model to YOUR data. What would you change?
 :::
 
-## Linear regression in Stan
+## Linear regression in brms
 
-Now we write a Stan program for this model. 
+Now we write some brms code for this model. 
 We'll begin with a simple model that has no posterior predictions:
 
 ```{r}
-#| class-output: stan
-normal_regression_no_prediction <- stan_model(
-  file = here::here("topics/02_regression/normal_regression_no_prediction.stan"),
-  model_name = "normal_regression_no_prediction")
+## get data ready
+peng_dep_len_df <- penguins |> 
+  tidyr::drop_na(bill_dep, bill_len) |> 
+  mutate(bill_len_cen = bill_len - mean(bill_len))
 
-normal_regression_no_prediction
+# write formula
+normal_reg_bf <- bf(bill_dep ~ bill_len_cen, family = gaussian())
+
+## make priors
+get_prior(normal_reg_bf, data = peng_dep_len_df)
+
+normal_reg_prior <- c(
+  prior(normal(0, .5), class = "b"),
+  prior(normal(17, 2), class = "Intercept"),
+  prior(exponential(.5), class = "sigma", lb = 0)
+)
+
+normal_reg_brm <- brm(formula = normal_reg_bf,
+                      prior = normal_reg_prior,
+                      data = peng_dep_len_df, file = here::here("topics/02_regression/normal_regression.rds"),
+                      file_refit = "on_change", refresh = 0L)
 ```
 
-In order to get the posterior, we need to put our data in Stan. We follow the same steps as previously:
-
-* Remember to remove NAs first!  
-* arrange the data in a list
-* pass the data to a Stan model to estimate.
+get the variable names
 
 ```{r}
-## drop NAs
-penguins_no_NA <- penguins |> 
-  tidyr::drop_na(bill_depth_mm, bill_length_mm) |> 
-  dplyr::mutate(
-    bill_length_center = bill_length_mm - mean(bill_length_mm))
-
-## assemble data list
-data_list <- with(penguins_no_NA,
-     list(N = length(bill_length_center),
-          bill_len = bill_length_center,
-          bill_dep = bill_depth_mm
-          ))
-
-## run the sampler, using the compiled model.
-normal_reg_no_pred <- sampling(
-  object = normal_regression_no_prediction,
-  data = data_list, 
-  refresh = 0)
-
-summary(normal_reg_no_pred)$summary
+tidybayes::get_variables(normal_reg_brm)
 ```
 
+
 ```{r}
-normal_reg_no_pred |> 
-  bayesplot::mcmc_areas(pars = c("slope", "intercept", "sigma"))
+normal_reg_brm |> 
+  bayesplot::mcmc_areas(pars = c("b_bill_len_cen", "Intercept", "sigma"))
 ```
 
 :::{.callout-tip}
 ### EXERCISE
 **Discussion** : Look just at the posterior distribution of the slope right above. 
-Do we have evidence that there's a relationship between bill length and bill depth.
+Do we have evidence that there's a relationship between bill length and bill depth?
 :::
 
 ## Posterior predictions in R
@@ -290,8 +279,8 @@ We can calculate a posterior prediction line directly in R for these data.
 I'll show each step in this workflow separately:
 
 ```{r}
-normal_reg_no_pred |> 
-  spread_rvars(slope, intercept, sigma)
+normal_reg_brm |> 
+  spread_rvars(b_bill_len_cen, Intercept, sigma)
 ```
 
 `tidybayes` helps us extract the posterior distribution of the parameters into a convenient object called an `rvar`. 
@@ -302,10 +291,10 @@ Next we combine these posteriors with a vector of observations to make a posteri
 
 ```{r}
 
-normal_reg_predline <- normal_reg_no_pred |> 
-  tidybayes::spread_rvars(slope, intercept) |> 
+normal_reg_predline <- normal_reg_brm |> 
+  tidybayes::spread_rvars(b_bill_len_cen, Intercept) |> 
   tidyr::expand_grid(x = seq(from = -15, to = 15, length.out = 5)) |> 
-  mutate(mu = intercept + slope*x)
+  mutate(mu = Intercept + b_bill_len_cen*x)
 
 normal_reg_predline
 ```
@@ -317,9 +306,9 @@ Finally we'll plot these:
 normal_reg_predline |> 
   ggplot(aes(x = x, dist = mu)) + 
   stat_lineribbon() + 
-  geom_point(aes(x = bill_length_center, y = bill_depth_mm),
+  geom_point(aes(x = bill_len_cen, y = bill_dep),
              inherit.aes = FALSE,
-             data = penguins_no_NA)
+             data = peng_dep_len_df)
 
 ```
 
@@ -329,8 +318,8 @@ The above workflow makes a nice figure, but perhaps it helps to see the individu
 We can get these with another tidybayes function `spread_draws`:
 
 ```{r}
-normal_reg_predline_draws <- normal_reg_no_pred |> 
-  tidybayes::spread_draws(slope, intercept, ndraws = 12)
+normal_reg_predline_draws <- normal_reg_brm |> 
+  tidybayes::spread_draws(b_bill_len_cen, Intercept, ndraws = 12)
 
 knitr::kable(normal_reg_predline_draws)
 ```
@@ -338,79 +327,30 @@ knitr::kable(normal_reg_predline_draws)
 ```{r}
 normal_reg_predline_draws |> 
   tidyr::expand_grid(x = seq(from = -15, to = 15, length.out = 5)) |> 
-  mutate(mu = intercept + slope*x) |> 
+  mutate(mu = Intercept + b_bill_len_cen*x) |> 
   ggplot(aes(x = x, y = mu, group = .draw)) + 
   geom_line() + 
-  geom_point(aes(x = bill_length_center, y = bill_depth_mm),
+  geom_point(aes(x = bill_len_cen, y = bill_dep),
              inherit.aes = FALSE,
-             data = penguins_no_NA)
+             data = peng_dep_len_df)
 ```
 
 
 
-## Posterior predictions in Stan
-
-We can also make these posterior predictions in Stan.
-
-First, compile the model:
+## Posterior predicted observations
 
 ```{r}
-#| class-output: stan
-normal_regression <- stan_model(file = here::here("topics/02_regression/normal_regression.stan"))
-
-normal_regression
-```
-
-Then prepare the data and feed it into the `sampling()` function.
-
-```{r}
-penguins_no_NA <- penguins |> 
-  tidyr::drop_na(bill_depth_mm, bill_length_mm) |> 
-  dplyr::mutate(
-    bill_length_center = bill_length_mm - mean(bill_length_mm))
-
-data_list <- with(penguins_no_NA,
-     list(N = length(bill_length_center),
-          bill_len = bill_length_center,
-          bill_dep = bill_depth_mm,
-          npost = 6,
-          pred_values = modelr::seq_range(penguins_no_NA$bill_length_center, n = 6)
-          ))
-
-bill_norm_reg <- sampling(normal_regression,
-                          data = data_list, 
-                          refresh = 0)
+data.frame(bill_len_cen = seq(from = -15, to = 15, length.out = 5)) |> 
+  tidybayes::add_predicted_rvars(normal_reg_brm) |> 
+  ggplot(aes(x = bill_len_cen, ydist = .prediction)) + 
+  stat_lineribbon() +
+  geom_point(aes(x = bill_len_cen, y = bill_dep),
+             inherit.aes = FALSE,
+             data = peng_dep_len_df) + 
+  scale_fill_brewer(palette = "Greens", direction = -1)
 ```
 
 
-```{r}
-#| layout-ncol: 2
-library(tidyverse)
-
-bill_posterior <- bill_norm_reg |> 
-  tidybayes::spread_rvars(post_bill_dep_average[i],
-                          post_bill_dep_obs[i]) |>
-  mutate(bill_length = data_list$pred_values[i]) 
-
-bill_posterior |> 
-  ggplot(aes(x = bill_length, dist = post_bill_dep_average)) + 
-  tidybayes::stat_lineribbon() + 
-  geom_point(aes(x = bill_length_center, y = bill_depth_mm),
-             data = penguins_no_NA, 
-             inherit.aes = FALSE) + 
-  scale_fill_brewer(palette = "Greens", direction = -1, guide = "none") + 
-  labs(title = "Average response")
-
-bill_posterior |> 
-  ggplot(aes(x = bill_length, dist = post_bill_dep_obs)) + 
-  tidybayes::stat_lineribbon() + 
-  geom_point(aes(x = bill_length_center, y = bill_depth_mm),
-             data = penguins_no_NA, 
-             inherit.aes = FALSE) + 
-  scale_fill_brewer(palette = "Greens", direction = -1, guide = "none") +
-  labs(title = "Predicted observations")
-
-```
 
 :::{.callout-tip}
 ### EXERCISE
@@ -421,92 +361,61 @@ When you're done, look at the resulting summary of coefficients. What do you not
 
 :::{.callout-note collapse="true"}
 ### SOLUTION
-```{r, include=TRUE}
-#| class-output: stan
-normal_regression_spp <- stan_model(file = here::here("topics/02_regression/normal_regression_spp.stan"),
-                                    model_name = "normal_regression_spp")
 
-normal_regression_spp
-```
 
 We set up a list for this model just as we did before. 
 Note that this time we are using TRIPLE the `pred_values`, because we want to run independent predictions for each species.
 
 
-```{r}
-bill_vec <- modelr::seq_range(penguins_no_NA$bill_length_center, n = 6)
-
-data_list_spp <- with(penguins_no_NA,
-     list(N = length(bill_length_center),
-          bill_len = bill_length_center,
-          bill_dep = bill_depth_mm,
-          spp_id = as.numeric(as.factor(species)),
-          npost = 3*6,
-          pred_values = rep(bill_vec, 3),
-          pred_spp_id = rep(1:3, each = 6)
-          ))
-
-normal_reg_spp_post <- sampling(normal_regression_spp,
-                                data = data_list_spp, refresh = 0)
-
-```
-
-Note that the sign of the slope is different now! 
-
-```{r}
-summary(normal_reg_spp_post)$summary |> 
-  head(5) |>
-  knitr::kable()
-```
 
 :::
 
-### Plotting posterior predictions
+<!-- ### Plotting posterior predictions -->
 
-Using `stat_lineribbon()`, let's plot the average and predicted intervals for this regression.
+<!-- Using `stat_lineribbon()`, let's plot the average and predicted intervals for this regression. -->
 
-```{r}
-#| layout-ncol: 2
-#| warning: false
-bill_posterior <- normal_reg_spp_post |> 
-  tidybayes::spread_rvars(post_bill_dep_average[i],
-                          post_bill_dep_obs[i]) |>
-  mutate(bill_length = data_list_spp$pred_values[i],
-         spp = data_list_spp$pred_spp_id) |> 
-  mutate(spp = as.factor(levels(penguins$species)[spp]))
+<!-- ```{r} -->
+<!-- #| layout-ncol: 2 -->
+<!-- #| warning: false -->
+<!-- bill_posterior <- normal_reg_spp_post |>  -->
+<!--   tidybayes::spread_rvars(post_bill_dep_average[i], -->
+<!--                           post_bill_dep_obs[i]) |> -->
+<!--   mutate(bill_length = data_list_spp$pred_values[i], -->
+<!--          spp = data_list_spp$pred_spp_id) |>  -->
+<!--   mutate(spp = as.factor(levels(penguins$species)[spp])) -->
 
-bill_posterior |> 
-  ggplot(aes(x = bill_length,
-             ydist = post_bill_dep_average,
-             fill = spp, 
-             colour = spp)) + 
-  tidybayes::stat_lineribbon() + 
-  geom_point(aes(x = bill_length_center,
-                 y = bill_depth_mm,
-                 fill = species, colour = species),
-             data = penguins_no_NA, 
-             inherit.aes = FALSE) +   
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Dark2") + 
-  labs(title = "Average response")
+<!-- bill_posterior |>  -->
+<!--   ggplot(aes(x = bill_length, -->
+<!--              ydist = post_bill_dep_average, -->
+<!--              fill = spp,  -->
+<!--              colour = spp)) +  -->
+<!--   tidybayes::stat_lineribbon() +  -->
+<!--   geom_point(aes(x = bill_length_center, -->
+<!--                  y = bill_depth_mm, -->
+<!--                  fill = species, colour = species), -->
+<!--              data = penguins_no_NA,  -->
+<!--              inherit.aes = FALSE) +    -->
+<!--   scale_fill_brewer(palette = "Set2") + -->
+<!--   scale_color_brewer(palette = "Dark2") +  -->
+<!--   labs(title = "Average response") -->
 
-bill_posterior |> 
-  ggplot(aes(x = bill_length,
-             dist = post_bill_dep_obs,
-             fill = spp,
-             colour = spp)) + 
-  tidybayes::stat_lineribbon() + 
-  geom_point(aes(x = bill_length_center,
-                 y = bill_depth_mm,
-                 colour = species),
-             data = penguins_no_NA, 
-             inherit.aes = FALSE) + 
-  scale_fill_brewer(palette = "Set2") +
-  scale_color_brewer(palette = "Dark2") + 
-  labs(title = "Predicted observations") + 
-  facet_wrap(~spp, ncol = 1)
+<!-- bill_posterior |>  -->
+<!--   ggplot(aes(x = bill_length, -->
+<!--              dist = post_bill_dep_obs, -->
+<!--              fill = spp, -->
+<!--              colour = spp)) +  -->
+<!--   tidybayes::stat_lineribbon() +  -->
+<!--   geom_point(aes(x = bill_length_center, -->
+<!--                  y = bill_depth_mm, -->
+<!--                  colour = species), -->
+<!--              data = penguins_no_NA,  -->
+<!--              inherit.aes = FALSE) +  -->
+<!--   scale_fill_brewer(palette = "Set2") + -->
+<!--   scale_color_brewer(palette = "Dark2") +  -->
+<!--   labs(title = "Predicted observations") +  -->
+<!--   facet_wrap(~spp, ncol = 1) -->
 
-```
+<!-- ``` -->
 
 ## Exercise! 
 

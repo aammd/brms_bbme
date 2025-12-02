@@ -1740,25 +1740,24 @@ Visualize everything!
 <span id="cb48-436"><a href="#cb48-436" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Level 1</span></span>
 <span id="cb48-437"><a href="#cb48-437" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb48-438"><a href="#cb48-438" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>What would you do next to add complexity the bird-counting model above?</span>
-<span id="cb48-439"><a href="#cb48-439" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>We plotted histograms to evaluate our model. Experiment with other types of plots. For example, what is the maximum value in each posterior simulation? What is the minimum? How to these compare to the real data? TIP: check out <span class="in">`?ppc_stat.`</span></span>
+<span id="cb48-439"><a href="#cb48-439" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>We plotted histograms to evaluate our model. Experiment with other types of plots. For example, what is the maximum value in each posterior simulation? What is the minimum? How to these compare to the real data? TIP: check out `<span class="in">` ?bayesplot::`</span>PPC-overview` ``</span>
 <span id="cb48-440"><a href="#cb48-440" aria-hidden="true" tabindex="-1"></a> </span>
 <span id="cb48-441"><a href="#cb48-441" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb48-442"><a href="#cb48-442" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Level 2</span></span>
-<span id="cb48-443"><a href="#cb48-443" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Take a closer look at <span class="in">`poisson_model_samp$summary()`</span>. All the values of <span class="in">`bird_count`</span> are the same. That's correct, but why?</span>
-<span id="cb48-444"><a href="#cb48-444" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Try to fit YOUR data and your chosen distribution from <span class="co">[</span><span class="ot">Monday's exercise</span><span class="co">](topics/00_distributions)</span>. Check to see if the distribution you chose is implemented in Stan -- see, for example, <span class="co">[</span><span class="ot">this list</span><span class="co">](https://mc-stan.org/docs/functions-reference/binary_distributions.html)</span>. </span>
-<span id="cb48-445"><a href="#cb48-445" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>check the fit using the plots we have already seen today.</span>
-<span id="cb48-446"><a href="#cb48-446" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-447"><a href="#cb48-447" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Level 3</span></span>
-<span id="cb48-448"><a href="#cb48-448" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>You would never actually do the analysis in this exercise! If all you want is the average of a Poisson distribution, you can get that without any sampling at all. Start by writing the model with a different prior:</span>
-<span id="cb48-449"><a href="#cb48-449" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-450"><a href="#cb48-450" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb48-451"><a href="#cb48-451" aria-hidden="true" tabindex="-1"></a>\begin{align}</span>
-<span id="cb48-452"><a href="#cb48-452" aria-hidden="true" tabindex="-1"></a>\text{Number of Birds}_{\text{seen by person i}} &amp;\sim \text{Poisson}(\lambda) <span class="sc">\\</span></span>
-<span id="cb48-453"><a href="#cb48-453" aria-hidden="true" tabindex="-1"></a>\lambda &amp;\sim \text{Gamma}(9, .5)</span>
-<span id="cb48-454"><a href="#cb48-454" aria-hidden="true" tabindex="-1"></a>\end{align}</span>
-<span id="cb48-455"><a href="#cb48-455" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb48-456"><a href="#cb48-456" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-457"><a href="#cb48-457" aria-hidden="true" tabindex="-1"></a>This lets us calculate the posterior distribution directly. See the equation <span class="co">[</span><span class="ot">on Wikipedia</span><span class="co">](https://en.wikipedia.org/wiki/Poisson_distribution#Bayesian_inference)</span> and calculate the posterior for our bird data.</span>
+<span id="cb48-443"><a href="#cb48-443" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Try to fit YOUR data and your chosen distribution from <span class="co">[</span><span class="ot">Monday's exercise</span><span class="co">](topics/00_distributions)</span>. Check to see if the distribution you chose is implemented in Stan -- see, for example, <span class="co">[</span><span class="ot">this list</span><span class="co">](https://mc-stan.org/docs/functions-reference/binary_distributions.html)</span>. </span>
+<span id="cb48-444"><a href="#cb48-444" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>Check your model using the plots we have already seen today.</span>
+<span id="cb48-445"><a href="#cb48-445" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-446"><a href="#cb48-446" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Level 3</span></span>
+<span id="cb48-447"><a href="#cb48-447" aria-hidden="true" tabindex="-1"></a><span class="ss">* </span>You would never actually do the analysis in this exercise! If all you want is the average of a Poisson distribution, you can get that without any sampling at all. Start by writing the model with a different prior:</span>
+<span id="cb48-448"><a href="#cb48-448" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-449"><a href="#cb48-449" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb48-450"><a href="#cb48-450" aria-hidden="true" tabindex="-1"></a>\begin{align}</span>
+<span id="cb48-451"><a href="#cb48-451" aria-hidden="true" tabindex="-1"></a>\text{Number of Birds}_{\text{seen by person i}} &amp;\sim \text{Poisson}(\lambda) <span class="sc">\\</span></span>
+<span id="cb48-452"><a href="#cb48-452" aria-hidden="true" tabindex="-1"></a>\lambda &amp;\sim \text{Gamma}(9, .5)</span>
+<span id="cb48-453"><a href="#cb48-453" aria-hidden="true" tabindex="-1"></a>\end{align}</span>
+<span id="cb48-454"><a href="#cb48-454" aria-hidden="true" tabindex="-1"></a>$$</span>
+<span id="cb48-455"><a href="#cb48-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb48-456"><a href="#cb48-456" aria-hidden="true" tabindex="-1"></a>This lets us calculate the posterior distribution directly. See the equation <span class="co">[</span><span class="ot">on Wikipedia</span><span class="co">](https://en.wikipedia.org/wiki/Poisson_distribution#Bayesian_inference)</span> and calculate the posterior for our bird data.</span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
