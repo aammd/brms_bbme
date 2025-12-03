@@ -25,6 +25,8 @@ This course is based on [Modèles hiérarchiques pour les sciences de la vie](ht
 
 ::::
 
+## Day 2
+
 :::: {.columns}
 
 ::: {.column width="50%"}
@@ -43,6 +45,31 @@ This course is based on [Modèles hiérarchiques pour les sciences de la vie](ht
 :::
 
 ::::
+
+## Day 3
+
+:::: {.columns}
+
+::: {.column width="50%"}
+### Slides
+* [Simple hierarchical models](slides/06_Simple_hierarchical_model)
+* [Complex hierarchical models](slides/08_Complex_hierarchical_model)
+
+:::
+
+::: {.column width="50%"}
+### Exercises
+
+
+* [Hierarchy on the intercept](topics/03_one_random_effect)
+<!-- * [Intercept-Only Model (and tidybayes discussion)](topics/intercept_only) -->
+<!-- * [Hierarchy on the slope](topics/correlated_effects) -->
+
+:::
+
+::::
+
+
 
 <!--
 
@@ -76,27 +103,6 @@ Session 8 - 01:15:00 - Fitting Random Intercepts in brms
 Syntax for random effects in brms; interpreting group-level effects and variance components; extracting and plotting random intercepts.
 Session 9 - 01:15:00 - Model Diagnostics for Multilevel Models
 Examining traceplots, convergence checks, posterior predictive checks by group; assessing fit and structure of random intercept models.
-
-:::: {.columns}
-
-::: {.column width="50%"}
-### Slides
-* [Simple hierarchical models](slides/06_Simple_hierarchical_model)
-* [Complex hierarchical models](slides/08_Complex_hierarchical_model)
-
-:::
-
-::: {.column width="50%"}
-### Exercises
-
-
-* [Hierarchy on the intercept](topics/03_one_random_effect)
-* [Intercept-Only Model (and tidybayes discussion)](topics/intercept_only)
-* [Hierarchy on the slope](topics/correlated_effects)
-
-:::
-
-::::
 
 
 

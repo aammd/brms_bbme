@@ -29,14 +29,10 @@ Today's goal is to look at a couple of different model structures that we saw ye
 ## Load packages and data
 
 ```{r}
-library(palmerpenguins)
 suppressPackageStartupMessages(library(dplyr))
 library(ggplot2)
 library(tidyr)
-# library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
-options(mc.cores = parallel::detectCores())
+suppressPackageStartupMessages(library(brms))
 library(tidybayes)
 ```
 
@@ -49,20 +45,18 @@ The Palmer penguins are found on three different islands. Let's look at the dist
 
 ### Plot the data
 
-First a bit of data cleaning and preparation.
-First we select our variables. 
-For this section we'll drop NA values in the predictor^[dropping NA values is not always the best idea! I'm doing it here to create a focused example. Bayes gives us other options for working with missing values, including modelling them directly.].
-We'll create a new variable out of the union of the species and island names^[again, this is slightly contrived for the sake of making a clean example! normally you'd most likely treat these two variables separately.]
+First a bit of data cleaning and preparation: we select our variables and drop NA values in the predictors^[dropping NA values is not always the best idea! I'm doing it here to create a focused example. Bayes gives us other options for working with missing values, including modelling them directly.].
+We'll create a new variable out of the union of the species and island names^[again, this is slightly contrived for the sake of making a clean example! normally you'd treat these two variables separately.]
 We'll also change the units of body mass to kilograms.
 You can always transform a variable to more sensible units! 
 
 ```{r gauss-inter-setup}
 penguin_mass_island <- penguins |> 
-  select(species, island, body_mass_g) |> 
-  tidyr::drop_na(body_mass_g) |> 
+  select(species, island, body_mass) |> 
+  tidyr::drop_na(body_mass) |> 
   tidyr::unite(sp_island, species, island) |> 
   ## center mass and change the units
-  mutate(mass_kg = (body_mass_g)/1000)
+  mutate(mass_kg = (body_mass)/1000)
 
 knitr::kable(head(penguin_mass_island))
 ```
@@ -109,6 +103,7 @@ Here the subscript $i$ is just counting the row of the dataset, and $\text{group
 
 Here's a little trick to get group indexes (numbers) from a character vector:
 
+First, make a vector of unique names, then use these to label a numeric vector numbers 1 to $n$, where $n$ is the number of unique names:
 ```{r}
 group_names <- unique(penguin_mass_island$sp_island)
 group_numbers <- seq_along(group_names)
@@ -117,11 +112,13 @@ names(group_numbers) <- group_names
 group_numbers
 ```
 
+Now we have a named vector of sequential numbers, which means we can pull out a number by name.
+
 ```{r}
 penguin_groupid <- penguin_mass_island |> 
   mutate(group_id = group_numbers[sp_island])
 
-penguin_groupid
+knitr::kable(head(penguin_groupid))
 ```
 
 As you can see, we're set up now with the names and the indexes we need. 
@@ -154,33 +151,96 @@ penguin_pred_obs |>
 Run the above code a few times, trying different prior values. 
 :::
 
-### Write it in Stan
+### Write it in brms
+
+To write this out in brms we perform the usual four steps:
+
+1. Identify the data we'll use
+1. define the formula (`bf()`)
+1. define the prior (`get_prior()` and `prior()`)
+1. run the model (`brm()`)
 
 ```{r}
-#| class-output: stan
-fixed_groups <- stan_model(file = here::here("topics/03_one_random_effect/fixed_groups.stan"),
-                           model_name = "fixed_groups")
+# data
+glimpse(penguin_mass_island)
 
-fixed_groups
+# formula
+mass_sp_bf <- bf(mass_kg ~ sp_island, family = "gaussian")
+
+# prior
+get_prior(mass_sp_bf, data = penguin_mass_island)
+
 ```
+
+We have an issue! `brms` is enforcing some naming constraints on our variable names. This is because `brms` does a lot of work for us, and relies on standardized names to know how to handle different kinds of parameters. 
+
+```{r}
+penguin_mass_island_rename <- penguin_mass_island |> 
+  rename(SppIsland = sp_island)
+
+glimpse(penguin_mass_island_rename)
+
+# formula
+mass_sp_bf <- bf(mass_kg ~ SppIsland, family = "gaussian")
+
+# prior
+get_prior(mass_sp_bf, data = penguin_mass_island_rename)
+
+peng_mass_prior <- c(
+  prior(normal(5, 2), class = "Intercept"),
+  prior(normal(0, 1), class = "b"),
+  prior(exponential(.5), class = "sigma", lb = 0)
+)
+```
+
+We have two choices here. We could use the trick of removing the model intercept. 
+This makes it simpler to set a prior, since we're setting the prior on means and not on one mean and several differences.
+However, in our simulation we modelled an overall average and a difference to different
+
+```{r}
+peng_mass_prior_brm <- brm(
+  formula = mass_sp_bf, 
+  data = penguin_mass_island_rename,
+  prior = peng_mass_prior,
+  sample_prior = "only",
+  file = here::here("topics/03_one_random_effect/peng_mass_prior_brm.rds"),
+  file_refit = "on_change",
+  refresh = 0L)
+```
+
+let's look at the model summary
+
+```{r}
+summary(peng_mass_prior_brm)
+```
+
+As you can see, the values are close to the ones we set in the prior. let's look at model predictions as we've done before
+
+```{r}
+penguin_mass_island_rename |> 
+  tidybayes::add_predicted_draws(peng_mass_prior_brm, ndraws = 6) |> 
+  ggplot(aes(x = .prediction, y = SppIsland)) + 
+  geom_point() + 
+  facet_wrap(~.draw)
+```
+
+very encouraging! These distributions show some variation, but are loosely within the range of the possible.
 
 ### Fit the model
 
-Fitting the model requires arranging the data first, and creating a list which we then feed into Stan.
+Fitting the model now is simple, we only need to change the `sample_prior` argument.
 
 ```{r}
-peng_group_list <- with(penguin_groupid, 
-         list(
-           N = length(mass_kg),
-           y = mass_kg,
-           Ngroup = max(group_id),
-           group_id = group_id
-         ))
+peng_mass_brm <- brm(
+  formula = mass_sp_bf, 
+  data = penguin_mass_island_rename,
+  prior = peng_mass_prior,
+  sample_prior = "yes",
+  file = here::here("topics/03_one_random_effect/peng_mass_brm.rds"),
+  file_refit = "on_change",
+  refresh = 0L)
 
-fixed_groups_samples <- sampling(fixed_groups,
-  data = peng_group_list,
-  refresh = 0L
-)
+summary(peng_mass_brm)
 ```
 
 ### Plot predictions to evaluate results
@@ -188,25 +248,28 @@ fixed_groups_samples <- sampling(fixed_groups,
 Let's begin by plotting the averages for each group.
 
 ```{r}
-fixed_groups_samples |> 
-  gather_rvars(group_averages[group_id]) |> 
-  mutate(sp_island = names(group_numbers)[group_id]) |> 
-  ggplot(aes(y = sp_island, dist = .value)) + 
-  stat_pointinterval() + 
-  geom_jitter(data = penguin_mass_island,
-              aes(y = sp_island,
-                  x = mass_kg,
-                  colour = sp_island), 
-              pch = 21, inherit.aes = FALSE,
-              alpha = 0.8, height = 0.1, width = 0) + 
-  scale_colour_brewer(palette = "Dark2")
+# first look for the variable names in this model
+get_variables(peng_mass_brm)
+
+penguin_predicted_avgs <- penguin_mass_island_rename |> 
+  select(SppIsland) |> 
+  distinct() |> 
+  tidybayes::add_epred_rvars(peng_mass_brm)
+
+penguin_predicted_avgs |> 
+  ggplot(aes(xdist = .epred, y = SppIsland)) + 
+  stat_dist_halfeye()+
+  geom_point(aes(x = mass_kg, y = SppIsland), 
+             data = penguin_mass_island_rename, 
+             position = position_jitter(height = .1), 
+             col = "orange",
+             inherit.aes = FALSE)
 ```
 
 
 Some things to notice about the code above: 
 
-* I'm using my named vector `group_numbers` to re-create the column `sp_island`. This is my technique for making sure I always use the correct label, but you can do this any way you want.
-* We use `tidybayes::stat_pointinterval()` to summarize the posterior distribution.
+* We use `tidybayes::stat_dist_halfeye()` to summarize the posterior distribution.
 * we're adding points from the original data (`penguin_mass_island`) with `geom_jitter()`. We're adding noise vertically to make the visualization better, but not adding any horizontal noise.
 
 :::{.callout-tip}
@@ -214,27 +277,30 @@ Some things to notice about the code above:
 
 Repeat the exercise above using the value of `one_obs_per_group`. 
 Why are the results different? What additional error is included in these predictions?
-
 :::
 
 :::{.callout-note collapse="true"}
 ### SOLUTION
 
+Plotting predicted values requires a change in two places: 
+
+1. changing from `tidybayes::add_predicted_rvars` to `tidybayes::add_predicted_rvars`
+2. editing the ggplot2 code to use `.prediction` rather than `.epred`
+
 ```{r}
-fixed_groups_samples |> 
-  tidybayes::gather_rvars(one_obs_per_group[group_id]) |> 
-  mutate(sp_island = group_names[group_id]) |> 
-  ggplot(aes(y = sp_island,
-             dist = .value,
-             colour = sp_island)) + 
-  stat_pointinterval(colour = "black") + 
-  geom_jitter(
-    aes(y = sp_island,
-        x = mass_kg,
-        colour = sp_island), 
-    inherit.aes = FALSE,
-    alpha = .2, data = penguin_groupid, height = .2, width = 0) + 
-  scale_colour_brewer(palette = "Dark2")
+penguin_predicted_avgs <- penguin_mass_island_rename |> 
+  select(SppIsland) |> 
+  distinct() |> 
+  tidybayes::add_predicted_rvars(peng_mass_brm)
+
+penguin_predicted_avgs |> 
+  ggplot(aes(xdist = .prediction, y = SppIsland)) + 
+  stat_dist_halfeye()+
+  geom_point(aes(x = mass_kg, y = SppIsland), 
+             data = penguin_mass_island_rename, 
+             position = position_jitter(height = .1), 
+             col = "orange",
+             inherit.aes = FALSE)
 
 ```
 
@@ -290,16 +356,37 @@ $$
 
 :::
 
-#### Simulation of a hierarchical model
+### Syntax for a Hierarchical model in `brms`
+
+`brms` uses the familiar lme4 formula syntax to specify a random effect. So the model above goes from 
+
+```{r}
+# formula
+mass_sp_bf <- bf(mass_kg ~ 1 + SppIsland, family = "gaussian")
+```
+
+to the following 
+
+```{r}
+# formula
+mass_sp_bf <- bf(mass_kg ~ 1 + (1|SppIsland), family = "gaussian")
+```
+
+
+### Simulation of a hierarchical model in R 
 
 :::{.callout-tip}
 ### EXERCISE 
-Simulate from the model above. Base your approach on the [code for simulation the non-hierarchical version](#sec-fixed-simulation). 
+Simulate from the hierarchical model above. Base your approach on the [code for simulation the non-hierarchical version](#sec-fixed-simulation) 
 Remember to simulate one additional number: the standard deviation of group differences
+Alternatively, attempt to simulate it using brms.
 :::
 
 :::{.callout-note collapse="true"}
 ### SOLUTION
+
+Simulation via R: 
+
 ```{r}
 ngroup <- length(group_numbers)
 overall_mean <- rnorm(1, mean = 5, sd = 2)
@@ -321,56 +408,59 @@ penguin_pred_obs |>
   scale_color_brewer(palette = "Dark2")
 
 ```
-:::
 
-#### Stan
-
-
-Below I'm comparing the two Stan programs side-by-side. Compare them to the models above! 
+Simulation via brms:
 
 ```{r}
-hierarchical_groups <- stan_model(
-  file = "topics/03_one_random_effect/hierarchical_groups.stan")
-```
+glimpse(penguin_mass_island_rename)
 
-:::{.column-screen}
+# formula
+mass_hier_bf <- bf(mass_kg ~ 1 + (1|SppIsland), family = "gaussian")
 
-::::{.columns}
+# prior
+get_prior(mass_hier_bf, data = penguin_mass_island_rename)
 
-::: {.column width="2.5%"}
-:::
+peng_mass_hier_prior <- c(
+  prior(normal(5, 2), class = "Intercept"),
+  prior(exponential(1), class = "sd"),
+  prior(exponential(.5), class = "sigma", lb = 0)
+)
 
-::: {.column width="45%"}
-```{r}
-#| class-output: stan
-fixed_groups
-```
+peng_mass_prior_brm <- brm(
+  formula = mass_hier_bf, 
+  data = penguin_mass_island_rename,
+  prior = peng_mass_hier_prior,
+  sample_prior = "only",
+  file = here::here("topics/03_one_random_effect/peng_mass_prior_brm.rds"),
+  file_refit = "on_change",
+  refresh = 0L)
 
-:::
-
-::: {.column width="5%"}
-
-:::
-
-::: {.column width="45%"}
-
-```{r}
-#| class-output: stan
-hierarchical_groups
+summary(peng_mass_prior_brm)
 ```
 
 
 :::
 
-::: {.column width="2.5%"}
+## Fitting the model in brms
 
-:::
+```{r}
+peng_mass_hier_brm <- brm(
+  formula = mass_hier_bf, 
+  data = penguin_mass_island_rename,
+  prior = peng_mass_hier_prior,
+  sample_prior = "yes",
+  file = here::here("topics/03_one_random_effect/peng_mass_hier_brm.rds"),
+  file_refit = "on_change",
+  refresh = 0L)
+```
 
-::::
+```{r}
+summary(peng_mass_hier_brm)
+```
 
-:::
 
 
+<!--
 
 ```{r}
 hierarchical_groups_samples <- sampling(hierarchical_groups,
@@ -671,3 +761,5 @@ Another great way to model overdispersion is via the [Negative Binomial](https:/
 
 EXPERIMENTAL: replace the normal distribution for the random observation-level effect with the student_t distribution, to help with that one extreme datapoint! how does the slope change?
 :::
+
+--->

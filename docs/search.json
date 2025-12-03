@@ -11,7 +11,21 @@
     "href": "index.html#day-1-introduction-data-simulation-discrete-models",
     "title": "Course contents",
     "section": "Day 1: Introduction, data simulation, discrete models",
-    "text": "Day 1: Introduction, data simulation, discrete models\n\n\n\nSlides\n\nBayesian and MCMC\nStan and HMC\nProbability Distributions\n\n\n\n\nExercises\n\nSimulation and model fitting in Stan\n\n\n\n\n\n\n\nSlides\n\nData we’ll be using\nLinear models\n\n\n\n\nExercises\n\nDiscrete predictors\nLinear regression"
+    "text": "Day 1: Introduction, data simulation, discrete models\n\n\n\nSlides\n\nBayesian and MCMC\nStan and HMC\nProbability Distributions\n\n\n\n\nExercises\n\nSimulation and model fitting in Stan"
+  },
+  {
+    "objectID": "index.html#day-2",
+    "href": "index.html#day-2",
+    "title": "Course contents",
+    "section": "Day 2",
+    "text": "Day 2\n\n\n\nSlides\n\nData we’ll be using\nLinear models\n\n\n\n\nExercises\n\nDiscrete predictors\nLinear regression"
+  },
+  {
+    "objectID": "index.html#day-3",
+    "href": "index.html#day-3",
+    "title": "Course contents",
+    "section": "Day 3",
+    "text": "Day 3\n\n\n\nSlides\n\nSimple hierarchical models\nComplex hierarchical models\n\n\n\n\nExercises\n\nHierarchy on the intercept"
   },
   {
     "objectID": "slides/04_Linear_model/index.html#basic-regression-model",

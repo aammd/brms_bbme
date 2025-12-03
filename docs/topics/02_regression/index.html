@@ -1911,81 +1911,86 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <span id="cb41-429"><a href="#cb41-429" aria-hidden="true" tabindex="-1"></a>                           <span class="at">file_refit =</span> <span class="st">"on_change"</span>)</span>
 <span id="cb41-430"><a href="#cb41-430" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb41-431"><a href="#cb41-431" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-434"><a href="#cb41-434" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb41-435"><a href="#cb41-435" aria-hidden="true" tabindex="-1"></a>brms<span class="sc">::</span><span class="fu">stancode</span>(bill_dep_len_sp_brm)</span>
-<span id="cb41-436"><a href="#cb41-436" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb41-437"><a href="#cb41-437" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-438"><a href="#cb41-438" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-441"><a href="#cb41-441" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb41-442"><a href="#cb41-442" aria-hidden="true" tabindex="-1"></a>tidyr<span class="sc">::</span><span class="fu">expand_grid</span>(<span class="at">bill_len_cen =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="sc">-</span><span class="dv">15</span>, <span class="at">to =</span> <span class="dv">15</span>, <span class="at">length.out =</span> <span class="dv">5</span>),</span>
-<span id="cb41-443"><a href="#cb41-443" aria-hidden="true" tabindex="-1"></a>                   <span class="at">species =</span> <span class="fu">unique</span>(peng_dep_len_df<span class="sc">$</span>species)) <span class="sc">|&gt;</span></span>
-<span id="cb41-444"><a href="#cb41-444" aria-hidden="true" tabindex="-1"></a>  tidybayes<span class="sc">::</span><span class="fu">add_epred_rvars</span>(bill_dep_len_sp_brm) <span class="sc">|&gt;</span></span>
-<span id="cb41-445"><a href="#cb41-445" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> bill_len_cen, <span class="at">dist =</span> .epred, <span class="at">group =</span> species)) <span class="sc">+</span> </span>
-<span id="cb41-446"><a href="#cb41-446" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_dist_lineribbon</span>() <span class="sc">+</span> </span>
-<span id="cb41-447"><a href="#cb41-447" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>species) <span class="sc">+</span> </span>
-<span id="cb41-448"><a href="#cb41-448" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> bill_len_cen, <span class="at">y =</span> bill_dep), </span>
-<span id="cb41-449"><a href="#cb41-449" aria-hidden="true" tabindex="-1"></a>             <span class="at">data =</span> peng_dep_len_df, <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb41-450"><a href="#cb41-450" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb41-451"><a href="#cb41-451" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-454"><a href="#cb41-454" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb41-455"><a href="#cb41-455" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(bill_dep_len_sp_brm)</span>
-<span id="cb41-456"><a href="#cb41-456" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb41-457"><a href="#cb41-457" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-458"><a href="#cb41-458" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-459"><a href="#cb41-459" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb41-460"><a href="#cb41-460" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-461"><a href="#cb41-461" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- </span><span class="al">###</span><span class="co"> Plotting posterior predictions --&gt;</span></span>
+<span id="cb41-432"><a href="#cb41-432" aria-hidden="true" tabindex="-1"></a><span class="in">`brms`</span> produces a Stan program for us, and sometimes it is useful to look at what is actually in the model. </span>
+<span id="cb41-433"><a href="#cb41-433" aria-hidden="true" tabindex="-1"></a>For example, we can use the model to confirm that our priors are being applied to the correct parameters:</span>
+<span id="cb41-434"><a href="#cb41-434" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-437"><a href="#cb41-437" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb41-438"><a href="#cb41-438" aria-hidden="true" tabindex="-1"></a><span class="co">#| class-output: stan</span></span>
+<span id="cb41-439"><a href="#cb41-439" aria-hidden="true" tabindex="-1"></a>brms<span class="sc">::</span><span class="fu">stancode</span>(bill_dep_len_sp_brm)</span>
+<span id="cb41-440"><a href="#cb41-440" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb41-441"><a href="#cb41-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-442"><a href="#cb41-442" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-445"><a href="#cb41-445" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb41-446"><a href="#cb41-446" aria-hidden="true" tabindex="-1"></a>tidyr<span class="sc">::</span><span class="fu">expand_grid</span>(<span class="at">bill_len_cen =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="sc">-</span><span class="dv">15</span>, <span class="at">to =</span> <span class="dv">15</span>, <span class="at">length.out =</span> <span class="dv">5</span>),</span>
+<span id="cb41-447"><a href="#cb41-447" aria-hidden="true" tabindex="-1"></a>                   <span class="at">species =</span> <span class="fu">unique</span>(peng_dep_len_df<span class="sc">$</span>species)) <span class="sc">|&gt;</span></span>
+<span id="cb41-448"><a href="#cb41-448" aria-hidden="true" tabindex="-1"></a>  tidybayes<span class="sc">::</span><span class="fu">add_epred_rvars</span>(bill_dep_len_sp_brm) <span class="sc">|&gt;</span></span>
+<span id="cb41-449"><a href="#cb41-449" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> bill_len_cen, <span class="at">dist =</span> .epred, <span class="at">group =</span> species)) <span class="sc">+</span> </span>
+<span id="cb41-450"><a href="#cb41-450" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_dist_lineribbon</span>() <span class="sc">+</span> </span>
+<span id="cb41-451"><a href="#cb41-451" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>species) <span class="sc">+</span> </span>
+<span id="cb41-452"><a href="#cb41-452" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> bill_len_cen, <span class="at">y =</span> bill_dep), </span>
+<span id="cb41-453"><a href="#cb41-453" aria-hidden="true" tabindex="-1"></a>             <span class="at">data =</span> peng_dep_len_df, <span class="at">inherit.aes =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb41-454"><a href="#cb41-454" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb41-455"><a href="#cb41-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-456"><a href="#cb41-456" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-459"><a href="#cb41-459" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb41-460"><a href="#cb41-460" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(bill_dep_len_sp_brm)</span>
+<span id="cb41-461"><a href="#cb41-461" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb41-462"><a href="#cb41-462" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-463"><a href="#cb41-463" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- Using `stat_lineribbon()`, let's plot the average and predicted intervals for this regression. --&gt;</span></span>
-<span id="cb41-464"><a href="#cb41-464" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-465"><a href="#cb41-465" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ```{r} --&gt;</span></span>
-<span id="cb41-466"><a href="#cb41-466" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- #| layout-ncol: 2 --&gt;</span></span>
-<span id="cb41-467"><a href="#cb41-467" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- #| warning: false --&gt;</span></span>
-<span id="cb41-468"><a href="#cb41-468" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior &lt;- normal_reg_spp_post |&gt;  --&gt;</span></span>
-<span id="cb41-469"><a href="#cb41-469" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::spread_rvars(post_bill_dep_average[i], --&gt;</span></span>
-<span id="cb41-470"><a href="#cb41-470" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                           post_bill_dep_obs[i]) |&gt; --&gt;</span></span>
-<span id="cb41-471"><a href="#cb41-471" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   mutate(bill_length = data_list_spp$pred_values[i], --&gt;</span></span>
-<span id="cb41-472"><a href="#cb41-472" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--          spp = data_list_spp$pred_spp_id) |&gt;  --&gt;</span></span>
-<span id="cb41-473"><a href="#cb41-473" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   mutate(spp = as.factor(levels(penguins$species)[spp])) --&gt;</span></span>
-<span id="cb41-474"><a href="#cb41-474" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-475"><a href="#cb41-475" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior |&gt;  --&gt;</span></span>
-<span id="cb41-476"><a href="#cb41-476" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   ggplot(aes(x = bill_length, --&gt;</span></span>
-<span id="cb41-477"><a href="#cb41-477" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              ydist = post_bill_dep_average, --&gt;</span></span>
-<span id="cb41-478"><a href="#cb41-478" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              fill = spp,  --&gt;</span></span>
-<span id="cb41-479"><a href="#cb41-479" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              colour = spp)) +  --&gt;</span></span>
-<span id="cb41-480"><a href="#cb41-480" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::stat_lineribbon() +  --&gt;</span></span>
-<span id="cb41-481"><a href="#cb41-481" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   geom_point(aes(x = bill_length_center, --&gt;</span></span>
-<span id="cb41-482"><a href="#cb41-482" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  y = bill_depth_mm, --&gt;</span></span>
-<span id="cb41-483"><a href="#cb41-483" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  fill = species, colour = species), --&gt;</span></span>
-<span id="cb41-484"><a href="#cb41-484" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              data = penguins_no_NA,  --&gt;</span></span>
-<span id="cb41-485"><a href="#cb41-485" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              inherit.aes = FALSE) +    --&gt;</span></span>
-<span id="cb41-486"><a href="#cb41-486" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_fill_brewer(palette = "Set2") + --&gt;</span></span>
-<span id="cb41-487"><a href="#cb41-487" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_color_brewer(palette = "Dark2") +  --&gt;</span></span>
-<span id="cb41-488"><a href="#cb41-488" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   labs(title = "Average response") --&gt;</span></span>
-<span id="cb41-489"><a href="#cb41-489" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-490"><a href="#cb41-490" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior |&gt;  --&gt;</span></span>
-<span id="cb41-491"><a href="#cb41-491" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   ggplot(aes(x = bill_length, --&gt;</span></span>
-<span id="cb41-492"><a href="#cb41-492" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              dist = post_bill_dep_obs, --&gt;</span></span>
-<span id="cb41-493"><a href="#cb41-493" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              fill = spp, --&gt;</span></span>
-<span id="cb41-494"><a href="#cb41-494" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              colour = spp)) +  --&gt;</span></span>
-<span id="cb41-495"><a href="#cb41-495" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::stat_lineribbon() +  --&gt;</span></span>
-<span id="cb41-496"><a href="#cb41-496" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   geom_point(aes(x = bill_length_center, --&gt;</span></span>
-<span id="cb41-497"><a href="#cb41-497" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  y = bill_depth_mm, --&gt;</span></span>
-<span id="cb41-498"><a href="#cb41-498" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  colour = species), --&gt;</span></span>
-<span id="cb41-499"><a href="#cb41-499" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              data = penguins_no_NA,  --&gt;</span></span>
-<span id="cb41-500"><a href="#cb41-500" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              inherit.aes = FALSE) +  --&gt;</span></span>
-<span id="cb41-501"><a href="#cb41-501" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_fill_brewer(palette = "Set2") + --&gt;</span></span>
-<span id="cb41-502"><a href="#cb41-502" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_color_brewer(palette = "Dark2") +  --&gt;</span></span>
-<span id="cb41-503"><a href="#cb41-503" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   labs(title = "Predicted observations") +  --&gt;</span></span>
-<span id="cb41-504"><a href="#cb41-504" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   facet_wrap(~spp, ncol = 1) --&gt;</span></span>
-<span id="cb41-505"><a href="#cb41-505" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-506"><a href="#cb41-506" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ``` --&gt;</span></span>
-<span id="cb41-507"><a href="#cb41-507" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-508"><a href="#cb41-508" aria-hidden="true" tabindex="-1"></a><span class="fu">## Exercise! </span></span>
-<span id="cb41-509"><a href="#cb41-509" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-510"><a href="#cb41-510" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>We have one model without species identity as an independent variable, and one which includes species. Look at the difference in $\sigma$ between these two models. Why did the value change? </span>
-<span id="cb41-511"><a href="#cb41-511" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Posterior predictions** Compare the model with species identity to the one without it, by performing posterior predictive checks for each of them (e.g. using `<span class="in">`pp_check(..., type = "dens_overlay"))`</span> ) which model do you prefer?</span>
+<span id="cb41-463"><a href="#cb41-463" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-464"><a href="#cb41-464" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb41-465"><a href="#cb41-465" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-466"><a href="#cb41-466" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- </span><span class="al">###</span><span class="co"> Plotting posterior predictions --&gt;</span></span>
+<span id="cb41-467"><a href="#cb41-467" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-468"><a href="#cb41-468" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- Using `stat_lineribbon()`, let's plot the average and predicted intervals for this regression. --&gt;</span></span>
+<span id="cb41-469"><a href="#cb41-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-470"><a href="#cb41-470" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ```{r} --&gt;</span></span>
+<span id="cb41-471"><a href="#cb41-471" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- #| layout-ncol: 2 --&gt;</span></span>
+<span id="cb41-472"><a href="#cb41-472" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- #| warning: false --&gt;</span></span>
+<span id="cb41-473"><a href="#cb41-473" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior &lt;- normal_reg_spp_post |&gt;  --&gt;</span></span>
+<span id="cb41-474"><a href="#cb41-474" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::spread_rvars(post_bill_dep_average[i], --&gt;</span></span>
+<span id="cb41-475"><a href="#cb41-475" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                           post_bill_dep_obs[i]) |&gt; --&gt;</span></span>
+<span id="cb41-476"><a href="#cb41-476" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   mutate(bill_length = data_list_spp$pred_values[i], --&gt;</span></span>
+<span id="cb41-477"><a href="#cb41-477" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--          spp = data_list_spp$pred_spp_id) |&gt;  --&gt;</span></span>
+<span id="cb41-478"><a href="#cb41-478" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   mutate(spp = as.factor(levels(penguins$species)[spp])) --&gt;</span></span>
+<span id="cb41-479"><a href="#cb41-479" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-480"><a href="#cb41-480" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior |&gt;  --&gt;</span></span>
+<span id="cb41-481"><a href="#cb41-481" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   ggplot(aes(x = bill_length, --&gt;</span></span>
+<span id="cb41-482"><a href="#cb41-482" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              ydist = post_bill_dep_average, --&gt;</span></span>
+<span id="cb41-483"><a href="#cb41-483" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              fill = spp,  --&gt;</span></span>
+<span id="cb41-484"><a href="#cb41-484" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              colour = spp)) +  --&gt;</span></span>
+<span id="cb41-485"><a href="#cb41-485" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::stat_lineribbon() +  --&gt;</span></span>
+<span id="cb41-486"><a href="#cb41-486" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   geom_point(aes(x = bill_length_center, --&gt;</span></span>
+<span id="cb41-487"><a href="#cb41-487" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  y = bill_depth_mm, --&gt;</span></span>
+<span id="cb41-488"><a href="#cb41-488" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  fill = species, colour = species), --&gt;</span></span>
+<span id="cb41-489"><a href="#cb41-489" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              data = penguins_no_NA,  --&gt;</span></span>
+<span id="cb41-490"><a href="#cb41-490" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              inherit.aes = FALSE) +    --&gt;</span></span>
+<span id="cb41-491"><a href="#cb41-491" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_fill_brewer(palette = "Set2") + --&gt;</span></span>
+<span id="cb41-492"><a href="#cb41-492" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_color_brewer(palette = "Dark2") +  --&gt;</span></span>
+<span id="cb41-493"><a href="#cb41-493" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   labs(title = "Average response") --&gt;</span></span>
+<span id="cb41-494"><a href="#cb41-494" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-495"><a href="#cb41-495" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- bill_posterior |&gt;  --&gt;</span></span>
+<span id="cb41-496"><a href="#cb41-496" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   ggplot(aes(x = bill_length, --&gt;</span></span>
+<span id="cb41-497"><a href="#cb41-497" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              dist = post_bill_dep_obs, --&gt;</span></span>
+<span id="cb41-498"><a href="#cb41-498" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              fill = spp, --&gt;</span></span>
+<span id="cb41-499"><a href="#cb41-499" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              colour = spp)) +  --&gt;</span></span>
+<span id="cb41-500"><a href="#cb41-500" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   tidybayes::stat_lineribbon() +  --&gt;</span></span>
+<span id="cb41-501"><a href="#cb41-501" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   geom_point(aes(x = bill_length_center, --&gt;</span></span>
+<span id="cb41-502"><a href="#cb41-502" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  y = bill_depth_mm, --&gt;</span></span>
+<span id="cb41-503"><a href="#cb41-503" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--                  colour = species), --&gt;</span></span>
+<span id="cb41-504"><a href="#cb41-504" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              data = penguins_no_NA,  --&gt;</span></span>
+<span id="cb41-505"><a href="#cb41-505" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--              inherit.aes = FALSE) +  --&gt;</span></span>
+<span id="cb41-506"><a href="#cb41-506" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_fill_brewer(palette = "Set2") + --&gt;</span></span>
+<span id="cb41-507"><a href="#cb41-507" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   scale_color_brewer(palette = "Dark2") +  --&gt;</span></span>
+<span id="cb41-508"><a href="#cb41-508" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   labs(title = "Predicted observations") +  --&gt;</span></span>
+<span id="cb41-509"><a href="#cb41-509" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!--   facet_wrap(~spp, ncol = 1) --&gt;</span></span>
+<span id="cb41-510"><a href="#cb41-510" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-511"><a href="#cb41-511" aria-hidden="true" tabindex="-1"></a><span class="co">&lt;!-- ``` --&gt;</span></span>
 <span id="cb41-512"><a href="#cb41-512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-513"><a href="#cb41-513" aria-hidden="true" tabindex="-1"></a><span class="fu">## Exercise! </span></span>
+<span id="cb41-514"><a href="#cb41-514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-515"><a href="#cb41-515" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>We have one model without species identity as an independent variable, and one which includes species. Look at the difference in $\sigma$ between these two models. Why did the value change? </span>
+<span id="cb41-516"><a href="#cb41-516" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Posterior predictions** Compare the model with species identity to the one without it, by performing posterior predictive checks for each of them (e.g. using `<span class="in">`pp_check(..., type = "dens_overlay"))`</span> ) which model do you prefer?</span>
+<span id="cb41-517"><a href="#cb41-517" aria-hidden="true" tabindex="-1"></a></span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
