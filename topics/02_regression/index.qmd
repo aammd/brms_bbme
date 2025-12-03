@@ -238,7 +238,7 @@ peng_dep_len_df <- penguins |>
   mutate(bill_len_cen = bill_len - mean(bill_len))
 
 # write formula
-normal_reg_bf <- bf(bill_dep ~ bill_len_cen, family = gaussian())
+normal_reg_bf <- bf(bill_dep ~ 1 + bill_len_cen, family = gaussian())
 
 ## make priors
 get_prior(normal_reg_bf, data = peng_dep_len_df)
@@ -251,7 +251,8 @@ normal_reg_prior <- c(
 
 normal_reg_brm <- brm(formula = normal_reg_bf,
                       prior = normal_reg_prior,
-                      data = peng_dep_len_df, file = here::here("topics/02_regression/normal_regression.rds"),
+                      data = peng_dep_len_df,
+                      file = here::here("topics/02_regression/normal_regression.rds"),
                       file_refit = "on_change", refresh = 0L)
 ```
 
@@ -265,6 +266,10 @@ tidybayes::get_variables(normal_reg_brm)
 ```{r}
 normal_reg_brm |> 
   bayesplot::mcmc_areas(pars = c("b_bill_len_cen", "Intercept", "sigma"))
+
+normal_reg_brm |> 
+  bayesplot::mcmc_areas(pars = "b_bill_len_cen") + 
+  coord_cartesian(xlim = c(-0.16, 0.16))
 ```
 
 :::{.callout-tip}
@@ -280,7 +285,7 @@ I'll show each step in this workflow separately:
 
 ```{r}
 normal_reg_brm |> 
-  spread_rvars(b_bill_len_cen, Intercept, sigma)
+  tidybayes::spread_rvars(b_bill_len_cen, Intercept, sigma)
 ```
 
 `tidybayes` helps us extract the posterior distribution of the parameters into a convenient object called an `rvar`. 
@@ -305,7 +310,7 @@ Finally we'll plot these:
 
 normal_reg_predline |> 
   ggplot(aes(x = x, dist = mu)) + 
-  stat_lineribbon() + 
+  tidybayes::stat_lineribbon() + 
   geom_point(aes(x = bill_len_cen, y = bill_dep),
              inherit.aes = FALSE,
              data = peng_dep_len_df)
@@ -350,6 +355,10 @@ data.frame(bill_len_cen = seq(from = -15, to = 15, length.out = 5)) |>
   scale_fill_brewer(palette = "Greens", direction = -1)
 ```
 
+```{r}
+summary(normal_reg_brm)
+```
+
 
 
 :::{.callout-tip}
@@ -362,10 +371,54 @@ When you're done, look at the resulting summary of coefficients. What do you not
 :::{.callout-note collapse="true"}
 ### SOLUTION
 
+```{r}
+## dataset
+glimpse(peng_dep_len_df)
 
-We set up a list for this model just as we did before. 
-Note that this time we are using TRIPLE the `pred_values`, because we want to run independent predictions for each species.
+## formula
+bill_dep_len_sp_bf <- bf(bill_dep ~ 0 + bill_len_cen + species, family = gaussian())
 
+get_prior(bill_dep_len_sp_bf, data = peng_dep_len_df)
+
+bill_dep_len_sp_prior <- c(
+  prior(normal(17, 2), class = "b", coef = "speciesAdelie"),
+  prior(normal(17, 2), class = "b", coef = "speciesChinstrap"),
+  prior(normal(17, 2), class = "b", coef = "speciesGentoo"),
+  prior(normal(0, .5), class = "b", coef = "bill_len_cen"),
+  prior(exponential(.5), class = "sigma", lb = 0)
+)
+
+bill_dep_len_sp_brm <- brm(formula = bill_dep_len_sp_bf, 
+                           data = peng_dep_len_df,
+                           prior = bill_dep_len_sp_prior, 
+                           file = here::here("topics/02_regression/bill_dep_len_sp_brm.rds"),
+                           file_refit = "on_change")
+```
+
+`brms` produces a Stan program for us, and sometimes it is useful to look at what is actually in the model. 
+For example, we can use the model to confirm that our priors are being applied to the correct parameters:
+
+```{r}
+#| class-output: stan
+brms::stancode(bill_dep_len_sp_brm)
+```
+
+
+```{r}
+tidyr::expand_grid(bill_len_cen = seq(from = -15, to = 15, length.out = 5),
+                   species = unique(peng_dep_len_df$species)) |>
+  tidybayes::add_epred_rvars(bill_dep_len_sp_brm) |>
+  ggplot(aes(x = bill_len_cen, dist = .epred, group = species)) + 
+  stat_dist_lineribbon() + 
+  facet_wrap(~species) + 
+  geom_point(aes(x = bill_len_cen, y = bill_dep), 
+             data = peng_dep_len_df, inherit.aes = FALSE)
+```
+
+
+```{r}
+summary(bill_dep_len_sp_brm)
+```
 
 
 :::
@@ -420,6 +473,6 @@ Note that this time we are using TRIPLE the `pred_values`, because we want to ru
 ## Exercise! 
 
 1. We have one model without species identity as an independent variable, and one which includes species. Look at the difference in $\sigma$ between these two models. Why did the value change? 
-2. **Posterior predictions** Edit the generated quantities blocks of `normal_regression.stan` and `normal_regression_spp.stan`  to create replicate observations for all N observations (that is, `yrep` as we did in the model of [bill depth previously](../discrete_predictor/index.qmd)). Use this to compare the models using `bayesplot::ppc_dens_overlay()` or another function from the bayesplot package.
+2. **Posterior predictions** Compare the model with species identity to the one without it, by performing posterior predictive checks for each of them (e.g. using ``pp_check(..., type = "dens_overlay"))` ) which model do you prefer?
 
 
