@@ -478,7 +478,9 @@ posterior_hier <- as.array(peng_mass_hier_brm)
 ```{r}
 bayesplot::color_scheme_set("darkgray")
 bayesplot::mcmc_parcoord(posterior_hier, np = np_peng) +  
-  coord_cartesian(ylim = c(-2, 10))
+  # coord_flip() + 
+  coord_cartesian(ylim = c(-2, 10)) + 
+  NULL
 ```
 
 We can look at divergent iterations in two dimensions here:
@@ -541,3 +543,86 @@ penguin_predicted_hier_avgs_NEW |>
              inherit.aes = FALSE)
 ```
 
+## Observation-level random effects: Mite abundance
+
+### What is the question? 
+
+Let's write a model to answer the question:  
+
+**How does the total abundance of the mite community change as water content increases?**  
+
+### Express this in Math
+
+Here's a partially complete model for species richness over time
+
+$$
+  \begin{align}
+\text{S}_i &\sim \text{Poisson}(e^a) \\
+a &= \bar\beta + \beta_{\text{water}} \cdot \text{water}_i \\
+\bar\beta &\sim \text{Normal}(?, ?) \\
+\beta_{\text{water}} &\sim \text{Normal}(?, ?) \\
+\end{align}
+$$
+  
+  :::{.callout-tip}
+### EXERCISE 
+Simulate from this model, and look at your simulations to decide on a reasonable prior for the data.
+:::
+  
+  :::{.callout-note collapse="true"}
+### SOLUTION
+```{r}
+n <- 30
+water <- seq(from = -5, to = 5, length.out = n)
+
+b0 <- rnorm(1, mean = log(17), sd = .3)
+b1 <- rnorm(1, mean = 0, sd = .2)
+
+S <- rpois(n, lambda = exp(b0 + b1*water))
+plot(water, S)
+```
+:::
+  
+  ### Data preparation & visualization
+  
+  First we need to load and prepare the data:
+  
+```{r}
+data(mite, package = "vegan")
+data("mite.env", package = "vegan")
+
+# combine data and environment
+
+mite_data_long <- mite |> 
+  tibble::rownames_to_column(var = "site_id") |> 
+  bind_cols(mite.env) |> 
+  pivot_longer(Brachy:Trimalc2,
+               names_to = "spp", values_to = "abd")
+```
+
+
+First let's transform the mite dataset into a dataframe of total community abundance (N) per site. 
+We'll also standardize the water content while we're at it:
+
+```{r}
+mite_community_abd <- mite_data_long |> 
+  group_by(site_id, WatrCont) |> 
+  summarize(N = sum(abd)) |>
+  ungroup() |> 
+  mutate(water_c = (WatrCont - mean(WatrCont))/100)
+
+knitr::kable(head(mite_community_abd))
+```
+
+We get a nice histogram of community abundance, and a clear negative relationship with water volume:
+
+```{r}
+#| layout-ncol: 2
+mite_community_abd |> 
+  ggplot(aes(x = N)) + 
+  geom_histogram()
+
+mite_community_abd |> 
+  ggplot(aes(x = water_c, y = N)) + 
+  geom_point()
+```
