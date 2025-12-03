@@ -276,7 +276,7 @@ Some things to notice about the code above:
 :::{.callout-tip}
 ### EXERCISE: plot posterior predictions of _observations_
 
-Repeat the exercise above using the value of `one_obs_per_group`. 
+Repeat the exercise above using predicted ***observations***, rather than the expected values for each group. 
 Why are the results different? What additional error is included in these predictions?
 :::
 
@@ -423,8 +423,8 @@ get_prior(mass_hier_bf, data = penguin_mass_island_rename)
 
 peng_mass_hier_prior <- c(
   prior(normal(5, 2), class = "Intercept"),
-  prior(exponential(1), class = "sd"),
-  prior(exponential(.5), class = "sigma", lb = 0)
+  prior(exponential(1), class = "sd", lb = 0),
+  prior(exponential(1), class = "sigma", lb = 0)
 )
 
 peng_mass_prior_brm <- brm(
@@ -457,5 +457,87 @@ peng_mass_hier_brm <- brm(
 
 ```{r}
 summary(peng_mass_hier_brm)
+```
+
+```{r}
+tidybayes::get_variables(peng_mass_hier_brm)
+bayesplot::mcmc_areas(peng_mass_hier_brm,
+                      pars = c("sd_SppIsland__Intercept", "prior_sd_SppIsland"))
+```
+
+
+### Diagnostics
+
+```{r}
+# get info on the sampler
+lp_peng <- log_posterior(peng_mass_hier_brm)
+np_peng <- nuts_params(peng_mass_hier_brm)
+posterior_hier <- as.array(peng_mass_hier_brm)
+```
+
+```{r}
+bayesplot::color_scheme_set("darkgray")
+bayesplot::mcmc_parcoord(posterior_hier, np = np_peng) +  
+  coord_cartesian(ylim = c(-2, 10))
+```
+
+We can look at divergent iterations in two dimensions here:
+
+```{r}
+bayesplot::mcmc_pairs(posterior_hier,
+           np = np_peng, 
+           pars = c("sd_SppIsland__Intercept","b_Intercept","sigma"),
+           off_diag_args = list(size = 0.75))
+```
+
+```{r}
+bayesplot::mcmc_trace(posterior_hier, pars = "sd_SppIsland__Intercept")
+```
+
+```{r}
+bayesplot::mcmc_trace(posterior_hier, pars = "b_Intercept")
+```
+
+
+### Sample for a new group
+
+We can make predictions in the same way that we did previously:
+
+```{r}
+penguin_predicted_hier_avgs <- penguin_mass_island_rename |> 
+  select(SppIsland) |> 
+  distinct() |> 
+  tidybayes::add_epred_rvars(peng_mass_hier_brm)
+
+penguin_predicted_hier_avgs |> 
+  ggplot(aes(xdist = .epred, y = SppIsland)) + 
+  stat_dist_halfeye()+
+  geom_point(aes(x = mass_kg, y = SppIsland), 
+             data = penguin_mass_island_rename, 
+             position = position_jitter(height = .1), 
+             col = "orange",
+             inherit.aes = FALSE)
+
+```
+
+But we can also make predictions for an entirely new group
+
+```{r}
+penguin_predicted_hier_avgs_NEW <- penguin_mass_island_rename |> 
+  select(SppIsland) |> 
+  distinct() |> 
+  bind_rows(data.frame(SppIsland = "Adelie_Ireland")) |> 
+  tidybayes::add_epred_rvars(peng_mass_hier_brm, 
+                             allow_new_levels = TRUE, 
+                             sample_new_levels = "gaussian")
+
+penguin_predicted_hier_avgs_NEW |> 
+  ggplot(aes(xdist = .epred, y = SppIsland)) + 
+  stat_dist_halfeye()+
+  geom_point(aes(x = mass_kg, y = SppIsland), 
+             data = penguin_mass_island_rename, 
+             position = position_jitter(height = .1), 
+             col = "orange",
+             inherit.aes = FALSE)
 ```
 
