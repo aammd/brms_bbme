@@ -27,10 +27,7 @@ However it is also useful from a strict model-building perspective -- so useful 
 suppressPackageStartupMessages(library(dplyr))
 library(ggplot2)
 library(tidyr)
-# library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
-options(mc.cores = parallel::detectCores())
+suppressPackageStartupMessages(library(brms))
 library(tidybayes)
 
 data(mite, package = "vegan")
@@ -121,9 +118,25 @@ Once again, the two parameters of this model represent:
 
 The above tidyverse approach is very appealing and intuitive, but we can also do the same procedure in brms: fitting many slopes as fixed effects:
 
-```{r}
+```{r, include=TRUE, eval=FALSE}
 ## data
+glimpse(mite_data_long_transformed)
 
+## formula
+mite_water_bf <- bf(presabs ~ 1 + spp + water + water*spp,
+                    family = bernoulli(link = "logit"))
+
+# priors
+get_prior(mite_water_bf, data = mite_data_long_transformed)
+
+mite_water_prior <- c(
+  prior(normal(0,1), class = "b"),
+  prior(normal(0,1), class = "Intercept")
+)
+
+
+mite_water_brm <- brm(mite_water_bf, data = mite_data_long_transformed, prior = mite_water_prior,
+                      file = "topics/correlated_effects/mite_water_brm.rds")
 
 ```
 
