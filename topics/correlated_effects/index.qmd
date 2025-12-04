@@ -117,72 +117,17 @@ Once again, the two parameters of this model represent:
 -   *Intercept* The probability (in log-odds) of a species being present at the average water concentration. some species are common, others are rare.
 -   *water* this is the change in probability (in log-odds) as water increases by one centilitre per litre of substrate.
 
-## Say it in Stan
+## Modelling multiple slopes in brms
 
-The above tidyverse approach is very appealing and intuitive, but we can also do the same procedure in Stan.
-
-```{r}
-#| class-output: stan
-all_species_unpooled <- stan_model(
-  file = "topics/correlated_effects/all_species_unpooled.stan")
-
-all_species_unpooled
-```
-
-Let's fit this model by passing in the data:
+The above tidyverse approach is very appealing and intuitive, but we can also do the same procedure in brms: fitting many slopes as fixed effects:
 
 ```{r}
-mite_bin <- mite
-mite_bin[mite_bin>0] <- 1
+## data
 
-mite_pa_list <- list(
-      Nsites = nrow(mite_bin),
-      S = ncol(mite_bin),
-      x = with(mite.env, (WatrCont - mean(WatrCont))/100),
-      y = as.matrix(mite_bin)
-    )
 
-all_species_unpooled_posterior <- 
-  rstan::sampling(
-    all_species_unpooled,
-    data = mite_pa_list, 
-    refresh = 1000, chains = 4
-  )
 ```
 
-now let's try to plot this:
 
-```{r}
-#| warning: false
-# start by looking at the names of variables
-# get_variables(all_species_unpooled_posterior)
-
-post_pred <- tidybayes::spread_rvars(all_species_unpooled_posterior, 
-             intercept[spp_id], slope[spp_id]) |> 
-  expand_grid(water = seq(from = -4, to = 4, length.out = 10)) |> 
-  mutate(prob = posterior::rfun(plogis)(intercept + slope*water),
-         spp = colnames(mite_bin)[spp_id]) |> 
-  ggplot(aes(x = water, dist = prob)) + 
-  tidybayes::stat_lineribbon() + 
-  facet_wrap(~spp) + 
-  scale_fill_brewer(palette = "Greens")
-
-post_pred
-```
-
-We can imitate the original figure by adding the observed data in orange:
-
-```{r stan_secret_weapon_fig}
-#| warning: false
-#| fig-height: 9
-#| fig-width: 7
-post_pred + 
-  geom_point(aes(x = water, y = presabs), 
-             inherit.aes = FALSE, 
-             data = mite_data_long_transformed,
-             pch = 21, 
-             fill = "orange")
-```
 
 :::{.callout-tip}
 ### EXERCISE
@@ -195,97 +140,3 @@ Are they the same? How are they different?
 2) Make a posterior prediction of species richness in these communities.
 :::
 
-:::{.callout-note collapse="true"}
-### SOLUTION
-
-First we rewrite the Stan model from above, replacing the standard deviations with parameters. We do this for the priors on the intercepts and slopes _separately_.
-
-```{r}
-#| class-output: stan
-all_species_partpooled <- stan_model(
-  file = "topics/correlated_effects/all_species_partpooled.stan")
-
-all_species_partpooled
-```
-
-Sample the model
-
-```{r}
-all_species_partpooled_posterior <- 
-  sampling(
-    all_species_partpooled,
-    data = mite_pa_list, 
-    refresh = 1000, chains = 4
-    )
-```
-
-Plot posterior predictions of trendlines, just as before:
-
-```{r}
-#| fig-height: 9
-#| fig-width: 7
-post_pred_partpooled <- tidybayes::spread_rvars(all_species_partpooled_posterior, 
-             intercept[spp_id], slope[spp_id]) |> 
-  expand_grid(water = seq(from = -4, to = 4, length.out = 10)) |> 
-  mutate(prob = posterior::rfun(plogis)(intercept + slope*water),
-         spp = colnames(mite_bin)[spp_id]) |> 
-  ggplot(aes(x = water, dist = prob)) + 
-  tidybayes::stat_lineribbon() + 
-  facet_wrap(~spp) + 
-  scale_fill_brewer(palette = "Reds") +
-  geom_point(aes(x = water, y = presabs), 
-             inherit.aes = FALSE, 
-             data = mite_data_long_transformed,
-             pch = 21, 
-             fill = "blue")
-
-post_pred_partpooled
-```
-
-#### Comparing slope estimates of both models
-
-
-```{r}
-unpooled_slopes <- tidybayes::spread_rvars(all_species_unpooled_posterior, 
-              slope[spp_id]) |> 
-  mutate(type = "non-hierarchical")
-
-partpooled_slopes <- tidybayes::spread_rvars(all_species_partpooled_posterior, 
-              slope[spp_id]) |> 
-  mutate(type = "hierarchical")
-
-
-partpooled_slopes |> 
-  bind_rows(unpooled_slopes) |> 
-  mutate(species = colnames(mite_bin)[spp_id],
-         med_slope = median(slope),
-         species = forcats::fct_reorder(species, med_slope)) |> 
-  ggplot(aes(x = species, dist = slope, colour = type)) + 
-  stat_pointinterval(position = position_dodge(width = .5)) + 
-  # facet_wrap(~type)
-  NULL
-
-```
-
-
-#### Posterior distribution of species richness
-
-We can always calculate things out of the posterior distribution, and get a new distribution which reflects the uncertainty in all our parameter estimates.  
-Here I'm suggesting we calculate the relationship between **species richness** and water concentration
-
-```{r}
-tidybayes::spread_draws(all_species_partpooled_posterior, 
-             intercept[spp_id], slope[spp_id], ndraws = 700) |> 
-  expand_grid(water = seq(from = -8, to = 6, length.out = 10)) |> 
-  mutate(prob = plogis(intercept + slope*water),
-         spp = colnames(mite_bin)[spp_id]) |> 
-  nest_by(water, .draw) |> 
-  mutate(S = sum(data$prob)) |> 
-  select(-data) |> unnest() |> 
-  ggplot(aes(x = water, y = S)) + 
-  tidybayes::stat_lineribbon() + 
-  scale_fill_brewer(palette = "Blues", direction = -1)
-```
-
-
-:::

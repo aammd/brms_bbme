@@ -44,9 +44,8 @@ $$
 suppressPackageStartupMessages(library(dplyr))
 library(ggplot2)
 library(tidyr)
-options(mc.cores = parallel::detectCores())
 library(tidybayes)
-
+library(brms)
 
 data("mite", package = "vegan")
 ```
@@ -70,7 +69,67 @@ knitr::kable(head(mite_long))
 ## EXERCISE 
 
 create a Poisson model of species abundance that offers *three* random intercepts: one for species, one for site, and another for observation level. 
-TIP: the dataset has no factor for observation-level vairance, you may have to create one.
+TIP: the dataset has no factor for observation-level variance, you will have to create one.
+
+```{r}
+## data
+mite_long_siteid <- mite_long |> 
+  mutate(obs_id = seq_along(spp))
+
+# formula
+mite_intercept_only_bf <- bf(abd ~ 1 + (1 | spp_id) + (1 | site_id) + (1 | obs_id), family = poisson(link = "log"))
+
+get_prior(mite_intercept_only_bf, data = mite_long_siteid)
+
+mite_intercept_only_prior <- c(
+  prior(normal(3, 1), class = "Intercept"),
+  prior(exponential(3), class = "sd")
+)
+
+mite_intercept_only_brm <- brm(
+  mite_intercept_only_bf,
+  data = mite_long_siteid,
+  prior = mite_intercept_only_prior,
+  sample_prior = "yes",
+  file = here::here("topics/intercept_only/mite_intercept_only_brm.rds"),
+  cores = 4)
+
+```
+
+To examine the relative magnitudes of the standard deviations
+
+```{r}
+head(tidybayes::get_variables(mite_intercept_only_brm))
+
+bayesplot::mcmc_areas(mite_intercept_only_brm, 
+                      regex_pars = "sd_.*")
+```
+
+What's the average abundance of each species? To answer this question, we can extract _only_ the random effects of species, and create a kind of rank-abundance plot. Note that we don't need to transform the response, because `tidybayes::add_epred_rvars` applies the link function for us:
+
+```{r}
+mite_long_siteid |> 
+  select(spp, spp_id) |> 
+  distinct() |> 
+  tidybayes::add_epred_rvars(
+    mite_intercept_only_brm, 
+    re_formula = ~ (1 | spp_id)
+    ) |> 
+  mutate(avg_abd=.epred,
+         spp = forcats::fct_reorder(.f = spp, .x = .epred)) |>
+  ggplot(aes(y = spp, xdist = .epred)) + 
+  stat_dist_pointinterval()
+  
+```
+
+Posterior predictions look alright also:
+
+```{r}
+pp_check(mite_intercept_only_brm) + coord_cartesian(xlim = c(0,100))
+
+```
+
+
 
 
 <!-- :::{.callout-warning} -->
