@@ -8,6 +8,9 @@ editor_options:
 We're going to search a plot and try to count all the individuals of a rare orchid. These orchids are rather rare, and even where they are common you're not likely to find them.
 
 ```{r}
+library(tidyverse)
+library(brms)
+library(tidybayes)
 # how many orchids in a hectare? that is 100 x 100 m, or 10 000 square meters
 plants_per_sq_m <- 4/1e4
 count_per_ha <- rpois(1000, lambda = plants_per_sq_m*1e4)

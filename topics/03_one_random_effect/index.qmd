@@ -147,7 +147,9 @@ penguin_pred_obs |>
 
 ```
 
+
 :::{.callout-tip}
+
 ### EXERCISE
 Run the above code a few times, trying different prior values. 
 :::
@@ -556,7 +558,7 @@ Let's write a model to answer the question:
 Here's a partially complete model for abundance over time
 
 $$
-  \begin{align}
+\begin{align}
 \text{N}_i &\sim \text{Poisson}(e^a) \\
 a &= \bar\beta + \beta_{\text{water}} \cdot \text{water}_i \\
 \bar\beta &\sim \text{Normal}(?, ?) \\
@@ -564,12 +566,13 @@ a &= \bar\beta + \beta_{\text{water}} \cdot \text{water}_i \\
 \end{align}
 $$
   
-  :::{.callout-tip}
+:::{.callout-tip}
+
 ### EXERCISE 
 Simulate from this model, and look at your simulations to decide on a reasonable prior for the data.
 :::
   
-  :::{.callout-note collapse="true"}
+:::{.callout-note collapse="true"}
 ### SOLUTION
 ```{r}
 n <- 30
@@ -583,9 +586,9 @@ plot(water, S)
 ```
 :::
   
-  ### Data preparation & visualization
+### Data preparation & visualization
   
-  First we need to load and prepare the data:
+First we need to load and prepare the data:
   
 ```{r}
 data(mite, package = "vegan")
@@ -643,7 +646,12 @@ mite_prior <- c(
 
 ## run the model! 
 
-mite_brm <- brm(mite_bf, data = mite_community_abd, prior = mite_prior, refresh = 100L)
+mite_brm <- brm(mite_bf,
+                data = mite_community_abd,
+                prior = mite_prior, 
+                refresh = 0L,
+                file = here::here("topics/03_one_random_effect/mite_brm.rds"),
+                file_refit = "on_change")
 ```
 
 
@@ -651,7 +659,9 @@ mite_brm <- brm(mite_bf, data = mite_community_abd, prior = mite_prior, refresh 
 summary(mite_brm)
 ```
 
-Plot the predicted line
+Note that the slope coefficient has how flipped to be strongly negative! 
+
+Plot the predicted line:
 
 ```{r}
 library(modelr)
@@ -670,7 +680,9 @@ pp_check(mite_brm, type = "dens_overlay")
 ```
 
 
-## let's do better! 
+## Improving the Poisson model with an observation-level random effect
+
+Observation-level random effects add flexibility to a Poisson model and allow us to model the additional variation.
 
 ```{r}
 ## data! 
@@ -743,6 +755,7 @@ mite_negbin_prior_brm <- brm(mite_negbin_bf,
                      data = mite_community_abd, 
                      prior = mite_negbin_prior, 
                      refresh = 0L, 
+                     sample_prior = "only",
                      file = here::here("topics/03_one_random_effect/mite_negbin_prior_brm.rds"), 
                      file_refit = "on_change")
 
@@ -757,4 +770,14 @@ mite_community_abd |>
 
 ### Exercise
 
-Run a negative binomial regression, and compare to the example above
+Run a negative binomial regression, and compare to the example above.
+
+
+```{r, eval=FALSE, include=FALSE}
+mite_community_abd |> 
+  modelr::data_grid(water_c = seq_range(water_c, n = 7)) |> 
+  tidybayes::add_predicted_rvars(mite_negbin_prior_brm,ndraws = 12) |> 
+  ggplot(aes(x = water_c, ydist = .prediction)) + 
+  stat_dist_lineribbon()
+```
+
