@@ -1,0 +1,143 @@
+---
+title: "Controlling for effort with `offset()`"
+editor_options: 
+  chunk_output_type: console
+---
+
+
+We're going to search a plot and try to count all the individuals of a rare orchid. These orchids are rather rare, and even where they are common you're not likely to find them.
+
+```{r}
+# how many orchids in a hectare? that is 100 x 100 m, or 10 000 square meters
+plants_per_sq_m <- 4/1e4
+count_per_ha <- rpois(1000, lambda = plants_per_sq_m*1e4)
+hist(count_per_ha)
+mean(count_per_ha)
+var(count_per_ha)
+```
+
+Let's say that surveys originally followed a protocol of searching rectangular transects for this plant. A single transect is 5m x 100m. Later, survey protocol was changed and the length of the transect was increased to 250m
+
+```{r}
+labels <- c("small", "large")
+sizes <- c(5*100, 5*250)
+flower_survey <- data_frame(group_id = rep(c(1, 2), each = 35),
+                            area_surveyed = sizes[group_id]) |> 
+  mutate(flowers = rpois(length(group_id), lambda = area_surveyed*plants_per_sq_m))
+
+ggplot(flower_survey, aes(x = flowers)) + geom_histogram()
+```
+
+We want to estimate the true density of the plant, which we know is `r plants_per_sq_m`. 
+
+What happens if we ignore the area surveyed?
+
+```{r}
+exp(coef(glm(flowers ~ 1, family = "poisson", data = flower_survey)))
+```
+
+not surprisingly a VERY wrong answer! 
+
+Can we "standardize" by count?
+
+```{r}
+mean(with(flower_survey, flowers/area_surveyed))
+
+# or:
+
+lm( I(flowers/area_surveyed) ~ 1, data = flower_survey)
+```
+
+That gets us pretty close to the average count! 
+
+```{r}
+
+flower_survey_stand <- mutate(flower_survey, per_m2 = flowers/area_surveyed)
+
+flowers_gauss_brm <- brm(formula = bf(per_m2 ~ 1, family = "gaussian"),
+    prior = c(
+      prior(normal(0.0005, 0.0001), class = "Intercept"),
+      prior(exponential(1), class = "sigma")
+    ),
+    data = flower_survey_stand,
+    refresh = 0L,
+    file = here::here("topics/06_offsets/flowers_gauss_brm")
+    )
+
+```
+
+It's really not far from the truth! But the model makes awkward predictions. 
+
+```{r}
+pp_check(flowers_gauss_brm)
+```
+
+
+```{r}
+bayesplot::mcmc_areas(flowers_gauss_brm, pars = "Intercept") + 
+  geom_vline(xintercept = plants_per_sq_m, col = "red", size = 3)
+```
+
+## Using a Poisson offset
+
+```{r}
+
+flower_pois_bf <- bf(flowers ~ 1 + offset(log(area_surveyed)), family = "poisson")
+
+get_prior(flower_pois_bf, data = flower_survey)
+```
+
+Note that there is only one parameter, because the offset does not add  parameter.
+
+```{r}
+flower_pois_prior <- prior(normal(log(0.0005), .5), class = "Intercept")
+
+flower_pois_brm <- brm(flower_pois_bf, data = flower_survey, prior= flower_pois_prior, 
+    refresh = 0L, file = here::here("topics/06_offsets/flower_pois_brm.rds"))
+```
+
+Posterior predictive check shows a more satisfying prediction of the data.
+
+```{r}
+pp_check(flower_pois_brm)
+```
+
+We get a similar posterior 
+
+```{r}
+#| layout-nrow: 2
+#| fig-cap: Two ways to plot the posterior distribution of average flower number and compare it to the true values. 
+get_variables(flower_pois_brm)
+bayesplot::mcmc_areas(flower_pois_brm, pars = "Intercept") + 
+  geom_vline(xintercept = log(plants_per_sq_m), col = "red", size = 3)
+
+flower_pois_brm |> 
+  tidybayes::gather_draws(Intercept) |> 
+  mutate(average = exp(.value)) |> 
+  ggplot(aes(x = average)) + tidybayes::stat_halfeye() + 
+  geom_vline(xintercept = plants_per_sq_m, col = "red", size = 3)
+```
+
+## Why does it work
+
+The `offset()` function simply adds a term to our linear predictor and gives it a coefficient of exactly 1 -- that is, it does not multiply it by anything at all. 
+Together with the link function, it lets us scale the mean of the model by a constant term. This helps us to control for exposure or effort, when you find more of the response because you search over a larger space:
+
+$$
+\begin{align}
+y &\sim \text{Pois}(\lambda) \\
+y &\sim \text{Pois}(e^\alpha) \\
+y &\sim \text{Pois}(e^{\beta_0 + \text{offset}(\ln(\text{effort}))}) \\
+y &\sim \text{Pois}(e^{\beta_0 + \ln(\text{effort})}) \\
+y &\sim \text{Pois}(e^{\beta_0}e^{\ln(\text{effort})}) \\
+y &\sim \text{Pois}(\text{effort}\times e^{\beta_0}) \\
+\end{align}
+$$
+
+
+
+
+
+
+
+

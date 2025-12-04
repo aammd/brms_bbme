@@ -553,11 +553,11 @@ Let's write a model to answer the question:
 
 ### Express this in Math
 
-Here's a partially complete model for species richness over time
+Here's a partially complete model for abundance over time
 
 $$
   \begin{align}
-\text{S}_i &\sim \text{Poisson}(e^a) \\
+\text{N}_i &\sim \text{Poisson}(e^a) \\
 a &= \bar\beta + \beta_{\text{water}} \cdot \text{water}_i \\
 \bar\beta &\sim \text{Normal}(?, ?) \\
 \beta_{\text{water}} &\sim \text{Normal}(?, ?) \\
@@ -626,3 +626,135 @@ mite_community_abd |>
   ggplot(aes(x = water_c, y = N)) + 
   geom_point()
 ```
+
+```{r}
+## data! 
+glimpse(mite_community_abd)
+
+## formula!
+mite_bf <- bf(N ~ 1 + water_c, family = poisson(link = "log"))
+
+## get the prior
+get_prior(mite_bf, mite_community_abd)
+mite_prior <- c(
+  prior(normal(2.8, 0.3), class = "Intercept"),
+  prior(normal(0, 0.2), class = "b")
+)
+
+## run the model! 
+
+mite_brm <- brm(mite_bf, data = mite_community_abd, prior = mite_prior, refresh = 100L)
+```
+
+
+```{r}
+summary(mite_brm)
+```
+
+Plot the predicted line
+
+```{r}
+library(modelr)
+mite_community_abd |> 
+  modelr::data_grid(water_c = seq_range(water_c, n = 7)) |> 
+  tidybayes::add_predicted_rvars(mite_brm) |> 
+  ggplot(aes(x = water_c, ydist = .prediction)) + 
+  stat_dist_lineribbon() + 
+  scale_fill_brewer(palette = "Greens", direction=-1) + 
+  geom_point(aes(x = water_c, y = N),
+             data = mite_community_abd, inherit.aes = FALSE)
+```
+
+```{r}
+pp_check(mite_brm, type = "dens_overlay")
+```
+
+
+## let's do better! 
+
+```{r}
+## data! 
+glimpse(mite_community_abd)
+
+## formula!
+mite_site_bf <- bf(N ~ 1 + water_c + (1|site_id),
+              family = poisson(link = "log"))
+
+## get the prior
+get_prior(mite_site_bf, mite_community_abd)
+mite_site_prior <- c(
+  prior(normal(2.8, 0.3), class = "Intercept"),
+  prior(normal(0, 0.2), class = "b"),
+  prior(exponential(0.1), class = "sd")
+)
+
+## run the model! 
+
+mite_site_brm <- brm(mite_site_bf,
+                     data = mite_community_abd, 
+                     prior = mite_site_prior, 
+                     refresh = 0L, 
+                     file = here::here("topics/03_one_random_effect/mite_site_brm.rds"), 
+                     file_refit = "on_change")
+
+summary(mite_site_brm)
+```
+
+```{r}
+library(modelr)
+mite_community_abd |> 
+  modelr::data_grid(water_c = seq_range(water_c, n = 7),
+                    site_id = "Ireland") |> 
+  tidybayes::add_predicted_rvars(mite_site_brm,
+                                 allow_new_levels = TRUE,
+                                 sample_new_levels = "gaussian") |> 
+  ggplot(aes(x = water_c, ydist = .prediction)) + 
+  stat_dist_lineribbon() + 
+  scale_fill_brewer(palette = "Greens", direction=-1) + 
+  geom_point(aes(x = water_c, y = N),
+             data = mite_community_abd, inherit.aes = FALSE)
+```
+
+```{r}
+pp_check(mite_site_brm, type = "dens_overlay")
+```
+
+## Negative binomial regression
+
+Another way to model variable count data is via the Negative Binomial distribution. Read more about the [distribution on Wikipedia](https://en.wikipedia.org/wiki/Negative_binomial_distribution), check the way the distribution is [parameterized in brms](https://paulbuerkner.com/brms/articles/brms_families.html#binary-and-count-data-models) , and look at what link family are used via `?brms::brmsfamily` which is also [online here](https://paulbuerkner.com/brms/reference/brmsfamily.html)
+
+```{r}
+## data! 
+glimpse(mite_community_abd)
+
+## formula!
+mite_negbin_bf <- bf(N ~ 1 + water_c,
+              family = negbinomial(link = "log", link_shape = "log"))
+
+## prior 
+get_prior(mite_negbin_bf, data = mite_community_abd)
+mite_negbin_prior <- c(
+  prior(normal(2.8, 0.3), class = "Intercept"),
+  prior(normal(0, 0.2), class = "b"),
+  prior(normal(3, 1), class = "shape")
+)
+
+mite_negbin_prior_brm <- brm(mite_negbin_bf,
+                     data = mite_community_abd, 
+                     prior = mite_negbin_prior, 
+                     refresh = 0L, 
+                     file = here::here("topics/03_one_random_effect/mite_negbin_prior_brm.rds"), 
+                     file_refit = "on_change")
+
+mite_community_abd |> 
+  modelr::data_grid(water_c = seq_range(water_c, n = 7)) |> 
+  tidybayes::add_predicted_draws(mite_negbin_prior_brm,ndraws = 12) |> 
+  ggplot(aes(x = water_c, y = .prediction)) + 
+  geom_point() + 
+  facet_wrap(~.draw)
+
+```
+
+### Exercise
+
+Run a negative binomial regression, and compare to the example above
