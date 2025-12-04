@@ -44,9 +44,6 @@ $$
 suppressPackageStartupMessages(library(dplyr))
 library(ggplot2)
 library(tidyr)
-# library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
 options(mc.cores = parallel::detectCores())
 library(tidybayes)
 
@@ -69,141 +66,14 @@ mite_long <- mite |>
 knitr::kable(head(mite_long))
 ```
 
-```{r}
-#| class-output: stan
 
-spp_site_obs_intercepts <- stan_model(
-  file = "topics/intercept_only/spp_site_obs_intercepts.stan",
-  model_name = "spp_site_obs_intercepts")
+## EXERCISE 
 
-spp_site_obs_intercepts
-```
-
-Now we can sample this model. 
-
-:::{.callout-warning}
-## Warning: irresponsible statistics
-I'm sampling only 2 chains below, for illustration purposes only! use more chains in your research.
-:::
-
-```{r eval=TRUE}
-spp_site_obs_intercepts_samp <- rstan::sampling(
-  spp_site_obs_intercepts,
-  data = list(
-    N = nrow(mite_long),
-    N_spp = max(mite_long$spp_id),
-    spp_id = mite_long$spp_id,
-    N_sites = max(mite_long$site_id),
-    site_id = mite_long$site_id,
-    abd = mite_long$abd
-  ),chains = 2)
-
-# spp_site_obs_intercepts_samp$save_object("topics/intercept_only/spp_site_obs_intercepts.rds")
-```
-
-## Exploring the model output
-
-The output is large, so rather than showing all the parameters, I'm just going to count them. 
-
-```{r}
-nrow(summary(spp_site_obs_intercepts_samp)$summary)
-nrow(mite_long)
-```
-
-We have fit many more parameters than observations! However, this model fits just fine, with no divergent iterations. These are one indication (not the only one!) that the model fit OK:
-
-```{r}
-rstan::check_divergences(spp_site_obs_intercepts_samp)
-```
-
-Let's view the summary of only the standard deviations of the random effects (`sigma`):
-
-```{r}
-## let's look at the variance components
-
-summary(spp_site_obs_intercepts_samp,
-        pars = c("sigma_spp", "sigma_sites", "sigma_obs"))$summary
-```
-
-And we can plot them also:
-
-```{r}
-#| fig-cap: Standard deviations of the mite dataset
-bayesplot::mcmc_areas(spp_site_obs_intercepts_samp,
-                      regex_pars ='sigma', 
-                      border_size = 0.5)
-```
-
-Alternatively we can pull out posterior samples and make this figure ourselves:
-
-```{r}
-sigma_post <- rstan::extract(spp_site_obs_intercepts_samp,
-  pars = c("sigma_spp", "sigma_sites", "sigma_obs"))
-
-sigma_post_df <- posterior::as_draws_df(sigma_post)
-
-sigma_post_df |> 
-  pivot_longer(starts_with("sigma"), 
-               names_to = "sigma", 
-               values_to = "value") |> 
-  mutate(sigma = forcats::fct_reorder(sigma, value)) |> 
-  ggplot(aes(y = sigma, x = value)) + 
-  stat_dots()
-```
-
-This can be a useful guide to future model building -- perhaps collecting data on species traits would help to improve a model's predictive power.
-
-### Calculate the posterior distribution of average abundance for each species
-
-We can conceptualize this as a kind of "averaged rank abundance plot" for the species.
-
-To do this we need to extract the average $mu$ and add it to the species effects, $\beta_{\text{species}}$
-
-```{r eval=FALSE, include=FALSE}
-spp_avg_effects_df <- rstan::extract(spp_site_obs_intercepts_samp, 
-  pars = c("mu", "spp_effects")) |> 
-  posterior::as_draws_df()
-
-spp_avg_effects_df |> 
-  select(mu, starts_with("spp_effects")) |> 
-  mutate(row_id = seq_along(mu)) |> 
-  pivot_longer(-c("mu", "row_id"), 
-               names_to = "parname", 
-               values_to = "spp_effect") |> 
-  mutate(spp_avg = mu + spp_effect) |> 
-  ggplot(aes(x = spp_avg, group = parname)) + 
-  geom_density()
-```
+create a Poisson model of species abundance that offers *three* random intercepts: one for species, one for site, and another for observation level. 
+TIP: the dataset has no factor for observation-level vairance, you may have to create one.
 
 
-```{r}
-spp_mu_rvars <- spp_site_obs_intercepts_samp |> 
-  tidybayes::spread_rvars(mu, spp_effects[spp_id])
-```
-
-```{r}
-#| fig-cap: Two visualizations of species average abundances, as measured by a random effects model which included random effects for site and site-species combinations. 
-#|   - species average abundances on the log scale
-#|   - species average abundances on the observation scale.
-#| layout-nrow: 2
-spp_effect_df <- spp_mu_rvars |> 
-  mutate(spp_avg = mu + spp_effects,
-         species = names(spp_names)[spp_id],
-         species = forcats::fct_reorder(species, spp_avg))
-
-spp_effect_df |> 
-  ggplot(aes(dist = spp_avg, y = species)) + 
-  tidybayes::stat_slab(col = "black") + 
-  # coord_flip() + 
-  theme_minimal()
-
-spp_effect_df |> 
-  mutate(spp_avg_count = exp(spp_avg),
-         species = forcats::fct_reorder(species, spp_avg, .desc = TRUE)) |> 
-  ggplot(aes(dist = exp(spp_avg), x = species)) + 
-  tidybayes::stat_pointinterval() + 
-  # coord_flip() + 
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 90))
-```
-
+<!-- :::{.callout-warning} -->
+<!-- ## Warning: irresponsible statistics -->
+<!-- I'm sampling only 2 chains below, for illustration purposes only! use more chains in your research. -->
+<!-- ::: -->

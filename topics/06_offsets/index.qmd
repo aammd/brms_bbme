@@ -95,8 +95,11 @@ Note that there is only one parameter, because the offset does not add  paramete
 ```{r}
 flower_pois_prior <- prior(normal(log(0.0005), .5), class = "Intercept")
 
-flower_pois_brm <- brm(flower_pois_bf, data = flower_survey, prior= flower_pois_prior, 
-    refresh = 0L, file = here::here("topics/06_offsets/flower_pois_brm.rds"))
+flower_pois_brm <- brm(flower_pois_bf, 
+                       data = flower_survey,
+                       prior= flower_pois_prior, 
+                       refresh = 0L, 
+                       file = here::here("topics/06_offsets/flower_pois_brm.rds"))
 ```
 
 Posterior predictive check shows a more satisfying prediction of the data.
@@ -104,12 +107,13 @@ Posterior predictive check shows a more satisfying prediction of the data.
 ```{r}
 pp_check(flower_pois_brm)
 ```
-
-We get a similar posterior 
-
+  
+We get a similar posterior:  
+  
 ```{r}
-#| layout-nrow: 2
+#| layout-ncol: 2
 #| fig-cap: Two ways to plot the posterior distribution of average flower number and compare it to the true values. 
+#| 
 get_variables(flower_pois_brm)
 bayesplot::mcmc_areas(flower_pois_brm, pars = "Intercept") + 
   geom_vline(xintercept = log(plants_per_sq_m), col = "red", size = 3)
@@ -117,7 +121,8 @@ bayesplot::mcmc_areas(flower_pois_brm, pars = "Intercept") +
 flower_pois_brm |> 
   tidybayes::gather_draws(Intercept) |> 
   mutate(average = exp(.value)) |> 
-  ggplot(aes(x = average)) + tidybayes::stat_halfeye() + 
+  ggplot(aes(x = average)) + 
+  tidybayes::stat_halfeye() + 
   geom_vline(xintercept = plants_per_sq_m, col = "red", size = 3)
 ```
 
@@ -138,6 +143,114 @@ y &\sim \text{Pois}(\text{effort}\times e^{\beta_0}) \\
 $$
 
 
+##  Binary data
+
+Detection of frog calls in a survey. Listening for the same time (but that doesn't always happen!)
+
+survey durations in minutes
+
+```{r}
+frog_data <- data_frame(survey_times = rep(c(30, 10, 15, 45), each = 12))
+
+## calls on average once every 13 minutes
+frog_calling_rate_per_min <- 1/13
+
+frog_calls <- frog_data |> 
+  rowwise() |> 
+  mutate(calls_per_min = list(
+    rbinom(n = survey_times,
+           size = 1,
+           prob = frog_calling_rate_per_min
+           )
+    ))
+
+frog_calls$calls_per_min[21]
+
+frog_call_pa <- frog_calls |> 
+  mutate(call_pa = as.numeric(sum(calls_per_min)>0))
+
+```
+
+Link to the `rowwise()` vignette
+
+model with a glm in base R
+
+```{r}
+call_bf <- bf(call_pa ~ 1, family = bernoulli(link = "logit"))
+
+get_prior(call_bf, data = frog_call_pa)
+
+## true parameter
+curve(plogis(x), xlim = c(-4, 4))
+curve(qlogis(x), xlim = c(0, 1))
+
+qlogis(frog_calling_rate_per_min)
+
+call_prior <- c(
+  prior(normal(-2.5, .2), class = "Intercept")
+)
+
+call_brm <- brm(call_bf, 
+    family = bernoulli(), 
+    prior = call_prior,
+    file = here::here("topics/06_offsets/call_brm.rds"),
+    data = frog_call_pa)
+
+summary(call_brm)
+
+plogis(-1.4)
+```
+
+The right way to control for unequal effort in a logistic regression (AKA a bernoulli GLM) is via the "cumulative log-log link" or `cloglog` link.
+
+The equation for this function is
+
+$$
+1 - e^{-e^a}
+$$
+
+We can plot this equation against the logistic curve like so:
+
+```{r}
+curve(1 - exp(-exp(x)), xlim = c(-4, 4), lwd = 2)
+curve(plogis(x), col = "blue", add = TRUE)
+```
+
+
+where $a$ is the linear predictor (ie our model equation).
+
+Notice what happens when we add a log offset to this equation:
+
+$$
+\begin{align}
+p &= 1 - e^{-e^a} \\
+&= 1 - e^{-e^{\beta_0 + \text{offset}(\ln(\text{effort}))}} \\
+&= 1 - e^{-e^{\beta_0} \times \text{effort}} \\
+&= 1 - \left( e^{-e^{\beta_0}} \right)^\text{effort}
+\end{align}
+
+
+$$
+
+```{r}
+call_cll_bf <- bf(call_pa ~ 1 + offset(log(survey_times)),
+                  family = bernoulli(link = "cloglog"))
+
+get_prior(call_cll_bf, data = frog_call_pa)
+
+qlogis(frog_calling_rate_per_min)
+
+call_prior <- c(
+  prior(normal(-2.5, .2), class = "Intercept")
+)
+
+call_cll_brm <- brm(formula = call_cll_bf,
+    prior = call_prior,
+    refresh = 0L,
+    data = frog_call_pa, file = "topics/06_offsets/call_cll_brm.rds")
+
+summary(call_cll_brm)
+```
 
 
 

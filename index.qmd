@@ -85,7 +85,7 @@ This course is based on [Modèles hiérarchiques pour les sciences de la vie](ht
 
 * [Hierarchy on the intercept](topics/03_one_random_effect)
 * [offsets](topics/06_offsets)
-<!-- * [Intercept-Only Model (and tidybayes discussion)](topics/intercept_only) -->
+* [Intercept-Only Model (and tidybayes discussion)](topics/intercept_only)
 <!-- * [Hierarchy on the slope](topics/correlated_effects) -->
 
 :::
