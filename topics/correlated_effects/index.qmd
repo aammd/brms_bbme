@@ -77,6 +77,26 @@ mite_many_glms <- mite_data_long_transformed |>
         family = "binomial",
         data = data))) |> 
   mutate(coefs = list(broom::tidy(logistic_regressions)))
+
+
+
+
+mite_many_glms <- mite_data_long_transformed |> 
+  nest_by(spp) |> 
+  mutate(logistic_regressions = list(
+    glm(presabs ~ 1 + water, 
+        family = binomial(link = "logit"),
+        data = data)
+  )) |> 
+  mutate(coefs = list(broom::tidy(logistic_regressions)))
+
+broom::tidy(mite_many_glms$logistic_regressions[[5]])
+broom::glance(mite_many_glms$logistic_regressions[[5]])
+
+mite_many_glms$coefs[[5]]
+
+
+
 ```
 
 :::{.callout-note}
@@ -122,34 +142,168 @@ The above tidyverse approach is very appealing and intuitive, but we can also do
 ## data
 glimpse(mite_data_long_transformed)
 
+
+
 ## formula
-mite_water_bf <- bf(presabs ~ 1 + spp + water + water*spp,
+mite_water_bf <- bf(presabs ~ 0 + spp + water + water*spp,
                     family = bernoulli(link = "logit"))
 
 # priors
 get_prior(mite_water_bf, data = mite_data_long_transformed)
 
 mite_water_prior <- c(
-  prior(normal(0,1), class = "b"),
-  prior(normal(0,1), class = "Intercept")
-)
+  prior(normal(0,1), class = "b"))
+  # prior(normal(0,1), class = "Intercept")
+# )
 
 
-mite_water_brm <- brm(mite_water_bf, data = mite_data_long_transformed, prior = mite_water_prior,
-                      file = "topics/correlated_effects/mite_water_brm.rds")
+mite_water_brm <- brm(mite_water_bf,
+                      data = mite_data_long_transformed,
+                      prior = mite_water_prior,
+                      file = "topics/correlated_effects/mite_water_brm.rds",
+                      file_refit = "on_change", 
+                      refresh = 0L,
+                      cores = 4)
+
+# stancode(mite_water_brm)
 
 ```
 
+plotting coefficients
+
+```{r}
+tidybayes::get_variables(mite_water_brm)
 
 
-:::{.callout-tip}
+spp_fixed_coefs <- posterior::as_draws_rvars(mite_water_brm) |> 
+  tibble::enframe() |>
+  unnest(value) |> 
+  filter(!(name %in% c("lprior", "lp__")))
+
+## separate slopes and intercepts
+fixed_intercepts <- spp_fixed_coefs |> 
+  filter(!stringr::str_detect(name, ":|water")) |> 
+  mutate(spp = stringr::str_replace(name, "b_spp", "")) |> 
+  select(spp, intercept = value)
+
+## slopes
+slope_first_species <- spp_fixed_coefs |> 
+  filter(name == "b_water")
+## get the other slopes, and add the first species to them
+other_slopes <- spp_fixed_coefs |> 
+  filter(stringr::str_detect(name, ":water")) |> 
+  mutate(value = value + slope_first_species$value[[1]]) |> 
+  mutate(spp_nob = stringr::str_replace(name, "b_spp", ""),
+         spp = stringr::str_replace(spp_nob, ":water", "")) |> 
+  select(spp, slope=value)
+
+fixed_slopes <- slope_first_species |> 
+  mutate(spp = "Brachy") |> 
+  select(spp, slope=value) |> 
+  bind_rows(other_slopes)
+
+fixed_intercepts |> 
+  ggplot(aes(xdist = intercept, y = spp)) + 
+  stat_dist_pointinterval()
+```
+
+
 ### EXERCISE
 1) Add hierarchy to both the slope AND the intercept of this model. 
 Do not try to model them as correlated: the `lmer` syntax would be `y ~ 1 + water + (1 | species) + (0 + water | species)`  
 
+```{r, include=TRUE, eval=FALSE}
+## data
+glimpse(mite_data_long_transformed)
+
+## formula
+mite_water_hier_bf <- bf(
+  presabs ~ 1 + water + (1 | spp) + (0 + water | spp),
+  family = bernoulli(link = "logit"))
+
+# priors
+get_prior(mite_water_hier_bf, data = mite_data_long_transformed)
+
+mite_water_hier_prior <- c(
+  prior(normal(0,1), class = "b"),
+  prior(exponential(1), class = "sd")
+)
+
+
+mite_water_hier_brm <- brm(mite_water_hier_bf,
+                      data = mite_data_long_transformed,
+                      prior = mite_water_hier_prior,
+                      file = "topics/correlated_effects/mite_water_hier_brm.rds",
+                      file_refit = "on_change",
+                      refresh = 1000L,
+                      cores = 4)
+
+```
+
 2) Make a plot of the slope coefficients from both models, with and without hierarchy. 
 Are they the same? How are they different?
 
-2) Make a posterior prediction of species richness in these communities.
-:::
+```{r}
+
+tidybayes::get_variables(mite_water_hier_brm)
+
+spp_hier_coefs <- mite_water_hier_brm |> 
+  tidybayes::spread_rvars(b_Intercept, b_water, r_spp[spp, coef])
+
+## intercepts
+hier_intercepts <- spp_hier_coefs |> 
+  filter(coef == "Intercept") |> 
+  mutate(intercept = b_Intercept + r_spp) |> 
+  select(spp, intercept)
+
+hier_slopes <- spp_hier_coefs |> 
+  filter(coef == "water") |> 
+  mutate(slope = b_water + r_spp) |> 
+  select(spp, slope)
+
+hier_slopes |> 
+  ggplot(aes(xdist = slope, y = spp)) + 
+  stat_dist_pointinterval()
+```
+
+compare the slopes
+
+```{r}
+
+slopes_df <- bind_rows(hier_slopes |> 
+                         mutate(model = "hier"),
+                       fixed_slopes |> 
+                         mutate(model = "fixed"))
+
+
+slopes_df |> 
+  # mutate(spp = forcats::fct_reorder(spp, v))
+  ggplot(aes(y = spp, xdist = slope, colour = model)) + 
+  stat_dist_pointinterval(position = position_dodge(width = .4))
+```
+
+
+Compare the intercepts
+
+```{r}
+inters_df <- bind_rows(hier_intercepts |> 
+                         mutate(model = "hier"),
+                       fixed_intercepts |> 
+                         mutate(model = "fixed"))
+
+
+inters_df |> 
+  # mutate(spp = forcats::fct_reorder(spp, v))
+  ggplot(aes(y = spp, xdist = intercept, colour = model)) + 
+  stat_dist_pointinterval(position = position_dodge(width = .4))
+```
+
+## Comparing models
+
+```{r}
+mite_water_brm <- add_criterion(mite_water_brm, "loo")
+mite_water_hier_brm <- add_criterion(mite_water_hier_brm, "loo")
+
+loo_compare(mite_water_brm, mite_water_hier_brm)
+```
 

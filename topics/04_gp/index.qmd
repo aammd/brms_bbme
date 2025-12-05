@@ -34,6 +34,10 @@ Gaussian processes are very common, and there are lots of resources on the topic
 1. Here is a very long and wonderfully detailed post describing a GP approach to [occupany modelling](https://peter-stewart.github.io/blog/gaussian-process-occupancy-tutorial/)
 1. Another [blog on Gaussian Processes](https://brendanhasz.github.io/2018/10/10/hmm-vs-gp.html#generating-data-from-a-gaussian-process), Hidden Markov Models and more, very clear explanation.
 
+#### `brms` specific resources
+
+1. [brms translation](https://bookdown.org/content/4857/adventures-in-covariance.html) of Statistical Rethinking
+
 <!-- add equation -->
 
 <!-- add simulation -->
@@ -49,9 +53,7 @@ suppressPackageStartupMessages(library(dplyr))
 library(ggplot2)
 library(tidyr)
 # library(cmdstanr)
-suppressPackageStartupMessages(library(rstan))
-rstan_options("auto_write" = TRUE)
-options(mc.cores = parallel::detectCores())
+suppressPackageStartupMessages(library(brms))
 library(tidybayes)
 
 # mite data
@@ -161,145 +163,137 @@ $$
 
 Here's an interpretation of the parameters of this model: 
 
-* $a^2$ is the maximume covariance between two points
+* $a^2$ is the maximum covariance between two points
 * $\rho$ tells us how quickly that covariance goes down as two samples become more different in their water amount
 * $\delta_{i, j} \sigma^2$ adds the variances along the diagonal
 
-See the explanation of this function in the [Stan User's guide](https://mc-stan.org/docs/stan-users-guide/gaussian-processes.html#gaussian-process-regression)
+See the explanation of this function in the [Stan User's guide](https://mc-stan.org/docs/stan-users-guide/gaussian-processes.html#gaussian-process-regression). 
 
 ## Simulate to understand it
 
-Here is the Stan code that replicates the mathematical model above.
+Here is the brms code that replicates the mathematical model above.
 
 ```{r}
-#| class-output: stan
-gp_example_sim <- stan_model(file = "topics/04_gp/gp_example_sim.stan")
+## data
+glimpse(pwil_data)
 
-gp_example_sim
-```
+## formula
+pwil_water_bf <- bf(presabs ~ 1 + water + gp(water),
+                    family = bernoulli(link = "logit"))
 
 
-```{r, eval=TRUE}
-gp_example_sim_samples <- sampling(
-  gp_example_sim,
-  data = list(
-    N = 20,
-    x = seq(from = -3, to = 5, length.out = 20)),
-  refresh = 200, chains = 1
+## prior
+get_prior(pwil_water_bf, data = pwil_data)
+
+pwil_water_prior <- c(
+  set_prior("normal(0, 0.5)", class = "b", coef = "water"),
+  set_prior("normal(0, 0.2)", class = "Intercept"),
+  set_prior("normal(0, 0.8)", class = "sdgp", lb = 0),
+  set_prior("inv_gamma(5, 14)", class = "lscale", coef = "gpwater")
 )
 
+stancode(pwil_water_bf, prior = pwil_water_prior, data = pwil_data)
+
+## simulate from the model
+pwil_prior_brm <- brm(pwil_water_bf, 
+                      prior = pwil_water_prior, 
+                      data = pwil_data, 
+                      sample_prior = "only",
+                      cores = 4, 
+                      file = here::here("topics/04_gp/pwil_prior_brm.rds"),
+                      file_refit = "on_change")
+
 ```
 
-```{r}
-x_value_df <- tibble::enframe(x = seq(from = -3, to = 5, length.out = 20),
-                      name = "i", value = "water")
 
-gp_example_sim_samples |> 
-  tidybayes::spread_draws(f[i], a, ndraws = 45) |> 
-  left_join(x_value_df) |> 
-  ggplot(aes(x = water, y = plogis(f + a), group = .draw)) + 
-  geom_line() + 
+```{r}
+x_value_df <- tibble::enframe(
+  x = seq(from = -3, to = 5, length.out = 20),
+  name = "i", value = "water")
+
+x_value_df |> 
+  tidybayes::add_epred_draws(pwil_prior_brm, ndraws = 40) |> 
+  ggplot(aes(x= water, y = .epred, group = .draw)) + 
+  geom_line()+
   coord_cartesian(ylim = c(0, 1))
   
 ```
 
 
-## Express that model in code
+## fit this model to data:
 
 With a working simulation, we can now adapt the model to handle real data.
 
 ```{r}
-#| class-output: stan
-gp_example_pred <- stan_model(
-  file = "topics/04_gp/gp_example_pred.stan")
-
-gp_example_pred
+## simulate from the model
+pwil_posterior_brm <- brm(pwil_water_bf, 
+                      prior = pwil_water_prior, 
+                      data = pwil_data, 
+                      sample_prior = "no",
+                      cores = 4, 
+                      refresh = 0,
+                      file = here::here("topics/04_gp/pwil_posterior_brm.rds"),
+                      file_refit = "on_change")
 ```
 
-We need to generate data for making predictions! I'll create a new vector of observations called `new_x` that cover the range of the `water` variable in our dataset.
+```{r}
+x_value_df <- tibble::enframe(
+  x = seq(from = -3, to = 5, length.out = 20),
+  name = "i", value = "water")
 
-```{r eval=TRUE}
-# sample N values on the range of x
-new_x <- seq(from = -3, to = 5, length.out = 15)
-
-gp_data_list <- list(N = length(pwil_spatial$presabs) + length(new_x),
-                     Nobs = length(pwil_spatial$presabs),
-                     x = c(pwil_spatial$water, new_x),
-                     z = pwil_spatial$presabs)
-
-# put them on the dataframe
-gp_example_pwil_samp <- sampling(
-  gp_example_pred,
-  data = gp_data_list,
-  chains = 2, refresh = 1000)
-
-# gp_example_samp$save_object("topics/04_gp/gp_example_samp_pwil.rds")
+x_value_df |> 
+  tidybayes::add_epred_draws(pwil_posterior_brm, ndraws = 50) |> 
+  ggplot(aes(x= water, y = .epred)) + 
+  stat_lineribbon() + 
+  coord_cartesian(ylim = c(0, 1))
 ```
 
-:::{.callout-tip}
-Note that `cmdstanr` models have a method called `$save_object()`, which lets you save the model outputs into an `.rds` object.
+This can also be accomplished with the function `brms::conditional_effects`
 
-Also note that these notes have been converted to `rstan` so this tip doesn't help that much anymore ;) 
-:::
-
-```{r eval=TRUE}
-#| fig.cap: A Gaussian Process estimates a distribution of smooth functions to a dataset. Here we're using it to estimate the effect of water amount on the occurence of a mite.
-
-# gp_example_samp_pwil <- read_rds(
-#   "topics/04_gp/gp_example_samp_pwil.rds")
-
-water_prediction_points <- gp_example_pwil_samp |> 
-  tidybayes::gather_rvars(f[rownum]) |> 
-  slice(-(1:length(pwil_spatial$presabs)))
-
-water_prediction_points |> 
-  mutate(water = new_x,
-         presabs = posterior::rfun(plogis)(.value)) |> 
-  ggplot(aes(x = water, dist = presabs)) + 
-  tidybayes::stat_lineribbon() + 
-  # scale_fill_viridis_d(option = "rocket") + 
-  scale_fill_brewer(palette = "Reds", direction  = -1) + 
-  geom_jitter(aes(x = water, y = presabs), 
-              inherit.aes = FALSE, 
-              height = .01, width = 0,
-              data = pwil_spatial)
+```{r}
+conditional_effects(pwil_posterior_brm)
 ```
 
 <!-- ![](topics/04_gp/pwil_water.png) -->
 
-We can also pull out some specific functions. What I want you to see here is that there are MANY curvy lines that are consistent with this model.
-
-```{r}
-some_predicted_lines <-  gp_example_pwil_samp |> 
-  # take just some draws
-  tidybayes::spread_draws(a, f[rownum], ndraws = 63) |> 
-  # remove the rows that match observed data,
-  # and look only at the points for predictions.
-  filter(rownum > length(pwil_spatial$presabs)) |> 
-  # convert to probability
-  mutate(prob = plogis(f + a),
-         rownum = rownum - 70) |> 
-  ## need a dataframe that says which "rownum" from 
-  ## above goes with which value of water from the
-  ## new_x vector I made:
-  left_join(tibble::enframe(new_x,
-                            name = "rownum", 
-                            value = "water"))
-
-
-some_predicted_lines |> 
-  ggplot(aes(x = water, y = prob, group = .draw)) + 
-  geom_line(alpha = 0.7) + 
-  theme_minimal() + 
-  coord_cartesian(ylim = c(0, 1))
-```
-
-
 # Spatial predictions
 
-To make a prediction of a function on one X variable, we needed a sequence of points to predict along. 
+### Prior predictive simulations
 
-To make spatial predictions, we need a _grid_ of points to predict along.
+```{r}
+## data
+glimpse(pwil_spatial)
+
+## formula
+pwil_spatial_bf <- bf(presabs ~ 1 + gp(x, y),
+                    family = bernoulli(link = "logit"))
+
+
+## prior
+get_prior(pwil_spatial_bf, data = pwil_spatial)
+
+pwil_spatial_prior <- c(
+  set_prior("normal(0, 0.2)", class = "Intercept"),
+  set_prior("normal(0, 0.8)", class = "sdgp", lb = 0),
+  set_prior("inv_gamma(5, 14)", class = "lscale", coef = "gpxy")
+)
+
+# stancode(pwil_spatial_bf, prior = pwil_spatial_prior, data = pwil_spatial)
+
+## simulate from the model
+pwil_spatial_brm <- brm(pwil_spatial_bf, 
+                      prior = pwil_spatial_prior, 
+                      data = pwil_spatial, 
+                      sample_prior = "yes",
+                      cores = 4, 
+                      refresh = 0,
+                      file = here::here("topics/04_gp/pwil_spatial_brm.rds"),
+                      file_refit = "on_change")
+
+
+```
+
+To visualize predictions we need a grid of points to predict along:
 
 ```{r}
 grid_points <- modelr::data_grid(mite.xy, 
@@ -312,117 +306,47 @@ grid_points |>
   coord_fixed()
 ```
 
-Other than a change in the `data {}` block, the Stan code is unchanged! 
-
-
-### Prior predictive simulations
-
-```{r}
-#| class-output: stan
-gp_example_2D_prior <- stan_model(
-  file = "topics/04_gp/gp_example_2D_prior.stan")
-
-gp_example_2D_prior
-```
-
-
-```{r}
-gp_example_2D_prior_samp <- sampling(
-  gp_example_2D_prior,
-  data = list(N = nrow(grid_points),
-              x = grid_points,
-              rho_a = 5, rho_b = 14),
-  chains = 2, refresh = 1000)
-```
-
-### visualize the prior
-
-```{r}
-  ## extract the predictors
-gp_example_2D_prior_samp |> 
-  tidybayes::spread_draws(f[rownum], a, ndraws = 6) |> 
-  mutate(rownum = as.character(rownum)) |> 
-  left_join(grid_points |> 
-  tibble::rownames_to_column("rownum"), by = join_by(rownum)) |> 
-  mutate(presabs = plogis(f + a)) |> 
-  ggplot(aes(x = x, y = y, fill = presabs)) + 
-  geom_tile()+
-  scale_fill_viridis_c(option = "rocket") + 
-  coord_fixed()+
-  theme_minimal() + 
-  labs(fill = "Pr(y=1)") + 
-  facet_wrap(~.draw) +
-  NULL 
-```
-
-
 :::{.callout-warning}
 ## CAUTION: Slow
 The model below, over 70 points, is the slowest model we've seen so far and takes about 1 minute on my (Andrew's) laptop.
 :::
 
-```{r}
-#| class-output: stan
-gp_example_pred_2D <- stan_model(
-  file = "topics/04_gp/gp_example_pred_2D.stan")
-
-gp_example_pred_2D
-```
-
 plot the effect in space:
 
-```{r, eval=TRUE}
+```{r}
+grid_points <- modelr::data_grid(mite.xy, 
+                                 x = modelr::seq_range(x, by = .5),
+                                 y = modelr::seq_range(y, by = .5)) 
 
-## sample the model
-gp_example_2D_samp <- sampling(
-  gp_example_pred_2D,
-  data = list(N = length(pwil_spatial$presabs) + nrow(grid_points),
-              Nobs = length(pwil_spatial$presabs),
-              x = bind_rows(pwil_spatial[c("x", "y")], grid_points),
-              z = pwil_spatial$presabs),
-  chains = 2, refresh = 200)
-
-
-# gp_example_2D_samp$save_object("topics/04_gp/gp_example_2D_samp_pwil.rds")
+grid_points |> 
+  ggplot(aes(x = x, y = y)) + 
+  geom_point() + 
+  coord_fixed()
 ```
 
 ```{r}
+pwil_spatial_post_pred <- grid_points |> 
+  add_epred_draws(pwil_spatial_brm, draws = 10)
 
-# gp_example_2D_samp_pwil <- read_rds("topics/04_gp/gp_example_2D_samp_pwil.rds")
-
-## extract the predictors
-gp_example_2D_samp |> 
-  tidybayes::spread_rvars(f[rownum], a) |> 
-  slice(-(1:length(pwil_spatial$presabs))) |> 
-  bind_cols(grid_points) |> 
-  mutate(presabs = posterior::rfun(plogis)(f + a),
-         pa_median = median(presabs)) |> 
-  ggplot(aes(x = x, y = y, fill = pa_median)) + 
-  geom_tile()+
+pwil_spatial_post_pred |> 
+  summarize(avg_pred = mean(.epred)) |> 
+  ungroup() |> 
+  ggplot(aes(x = x, y = y, fill = avg_pred)) + 
+  geom_tile() + 
   geom_point(aes(x = x,
                  y = y,
-                 fill = presabs),
+                 col = as.factor(presabs)),
              inherit.aes = FALSE,
              data = pwil_spatial,
-             pch = 21 ,
-             size = 2.5,
-             stroke = .3,
-             colour = "lightblue"
+             # pch = 21 ,
+             # size = 2.5,
+             # stroke = .3,
+             # colour = "lightblue"
              ) + 
-  scale_fill_viridis_c(option = "rocket") + 
+  scale_fill_viridis_c(option = "rocket") +
   coord_fixed()+
   theme_minimal() + 
   labs(fill = "Pr(y=1)") + 
   NULL 
-
-# ggsave("topics/04_gp/pwil_spatial.png")
+  
 ```
-
-<!-- ![](topics/04_gp/pwil_spatial.png) -->
-
-## Extensions:
-
-Add water to the model. Does the spatial effect disappear, increase, or stay kind of the same?
-
-Next step: try to model water curve for more than one species. Would it be possible to make the species rho parameters hierarchical?
-

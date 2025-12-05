@@ -74,7 +74,6 @@ This course is based on [Modèles hiérarchiques pour les sciences de la vie](ht
 
 ::: {.column width="50%"}
 ### Slides
-* [Complex hierarchical models](slides/08_Complex_hierarchical_model)
 
 :::
 
@@ -86,6 +85,26 @@ This course is based on [Modèles hiérarchiques pour les sciences de la vie](ht
 * [offsets](topics/06_offsets)
 * [Intercept-Only Model](topics/intercept_only)
 * [Hierarchy on the slope](topics/correlated_effects)
+
+:::
+
+::::
+
+## Day 5
+
+:::: {.columns}
+
+::: {.column width="50%"}
+### Slides
+* [Complex hierarchical models](slides/08_Complex_hierarchical_model)
+
+:::
+
+::: {.column width="50%"}
+### Exercises
+
+
+* [Gaussian processes](topics/04_gp)
 
 :::
 

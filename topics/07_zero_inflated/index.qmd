@@ -1,0 +1,58 @@
+---
+title: "Zero inflated variables"
+description: |
+  modelling extra zeros.
+execute:
+  freeze: true
+format:
+  html:
+    code-tools: true
+editor_options: 
+  chunk_output_type: console
+---
+
+## Zero inflated models
+
+Sometimes an additional process creates zeros in our dataset. In this brief demonstration i'm going to build up a zero-inflated binomial model, and verify that we can estimate the true parameter values.
+
+Let's say that we are studying the proportion of germinated plants that survive to flowering. We begin by marking plots in the forest where these plants are found naturally. When new shoots emerge in early spring, we count all individuals of the target species in the plot. 
+
+
+```{r}
+nplots <- 42
+
+n_shoots_per_plot <- sample(5:50, size = nplots, replace = TRUE)
+
+```
+
+
+insect predators and diseases sometimes prevent them from flowering at all. The probablity a plant survives to flowering, avoiding these risks, is $p$:
+
+```{r}
+p_flower <- 0.4
+
+n_flower <- rbinom(nplots, n_shoots_per_plot, p_flower)
+
+```
+
+already we can do a simple model to confirm that we can estimate the probability of flowering accurately:
+
+```{r}
+library(brms)
+
+flower_data <- tibble(
+  n_shoots_per_plot, n_flower 
+)
+
+flower_bf <- bf(n_flower|trials() ~ 1, family = binomial(link = "logit"))
+
+get_prior(flower_bf, data = flower_data)
+
+brm(flower_bf,
+    prior = prior(normal(0, .2), class = "Intercept"), 
+    data = flower_data) |> summary()
+
+```
+
+
+
